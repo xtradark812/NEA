@@ -9,8 +9,9 @@ pygame.display.set_caption("Client")
 
 clientnumber = 0
 
-class Battle():
-    def __init__(self,charachters,maps):
+class Fight():
+    def __init__(self,p1,p2):
+        
         
         
 
