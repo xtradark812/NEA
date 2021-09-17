@@ -1,5 +1,5 @@
 import pygame
-from network import Network
+from client_network import Network
 
 width = 500
 height = 500
@@ -8,6 +8,11 @@ win = pygame.display.set_mode((width,height))
 pygame.display.set_caption("Client")
 
 clientnumber = 0
+
+class Battle():
+    def __init__(self,charachters,maps):
+        
+        
 
 class Player():
     def __init__(self,x,y,width,height,color):
@@ -39,6 +44,7 @@ class Player():
         
         self.rect = (self.x,self.y,self.width,self.height)
 
+     
 
 
 def redrawWindow(win,player):
@@ -59,7 +65,7 @@ def main():
                 run = False
                 pygame.quit()
 
-        p.move()
+        p.move() #checks for key prsses, and moves charachter
         redrawWindow(win,p)
 
 main()
