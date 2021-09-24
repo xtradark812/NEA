@@ -1,4 +1,5 @@
 import socket
+import json
 
 class Network():
     def __init__(self):
@@ -6,22 +7,36 @@ class Network():
         self.server = "127.0.0.1"
         self.port = 5555
         self.addr = (self.server,self.port)
-        self.pos = self.connect()
+        self.BUFSIZ = 2048
+        self.client.connect(self.addr)
+        self.username = self.connectionInit("test")
 
-    def getPos(self):
-        return self.pos
+    #def getPos(self):
+     #   return self.pos
     
-    def connect(self):
-        try:
-            self.client.connect(self.addr)
-            return self.client.recv(2048).decode()
-        except:
-            pass
+    def connectionInit(self,username): #function pulled from previous messaging project
 
-    def send(self,data):
+        self.loginReq = {"requestType":"loginRequest","username":username}
+        self.serialized = json.dumps(self.loginReq) #serialize data
+        self.client.sendall(bytes(self.serialized, "utf8")) ### SENDS LOGIN DATA TO SERVER [loginRequest,username]
         try:
-            self.client.send(str.encode(data))
-            return self.client.recv(2048).decode()
+            response = json.loads(self.client.recv(self.BUFSIZ).decode("utf8")) ### WAITS FOR DATA TO BE RETURNED
+
+            if response["requestType"]=="loginRequest" and response["loginR"]==True: 
+                print("logged in as", username)
+                return username
+            else:
+                return False      
+        except:
+            print("Invalid response from server")
+            return False
+
+
+
+    def sendPos(self,pos):
+        try:
+            self.serialized = json.dumps(pos) #serialize data
+            self.client.sendall(bytes(self.serialized, "utf8")) ### SENDS DATA
         except socket.error as e:
             print ("Send error:", e)
 

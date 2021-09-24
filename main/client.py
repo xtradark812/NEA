@@ -11,6 +11,7 @@ clientnumber = 0
 
 class Fight():
     def __init__(self,p1,p2):
+        pass
         
         
         
@@ -23,7 +24,7 @@ class Player():
         self.height = height
         self.color = color
         self.rect = (x,y,width,height)
-        self.vel = 3
+        self.vel = .5
 
     def draw(self,win):
         pygame.draw.rect(win,self.color,self.rect)
@@ -45,6 +46,11 @@ class Player():
         
         self.rect = (self.x,self.y,self.width,self.height)
 
+    def getPos(self):
+        return {"x":self.x,"y":self.y}
+
+
+    
      
 
 
@@ -57,16 +63,25 @@ def redrawWindow(win,player):
 def main():
     run = True
     n = Network()
-    startPos = n.getPos()
+
+    #startPos = n.getPos()
     p = Player(50,50,100,100,(0,255,0))
 
+    elapsedTime = 0 #variable for counting ticks since init
+    clock = pygame.time.Clock() #keep track of ticks
     while run:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
                 pygame.quit()
 
+        dt = clock.tick() #the following method returns the time since its last call in milliseconds
+        elapsedTime += dt
+
         p.move() #checks for key prsses, and moves charachter
+
+        n.sendPos(p.getPos())
+        
         redrawWindow(win,p)
 
 main()
