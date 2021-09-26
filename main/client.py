@@ -8,12 +8,7 @@ win = pygame.display.set_mode((width,height))
 pygame.display.set_caption("Client")
 
 clientnumber = 0
-
-class Fight():
-    def __init__(self,p1,p2):
-        pass
-        
-        
+  
         
 
 class Player():
@@ -29,20 +24,26 @@ class Player():
     def draw(self,win):
         pygame.draw.rect(win,self.color,self.rect)
     
-    def move(self):
-        keys = pygame.key.get_pressed()
+    def move(self,data=None):
+        
 
-        if keys[pygame.K_LEFT]:
-            self.x -= self.vel
+        if data == None:
+            keys = pygame.key.get_pressed()
 
-        if keys[pygame.K_RIGHT]:
-            self.x += self.vel
+            if keys[pygame.K_LEFT]:
+                self.x -= self.vel
 
-        if keys[pygame.K_UP]:
-            self.y -= self.vel
+            if keys[pygame.K_RIGHT]:
+                self.x += self.vel
 
-        if keys[pygame.K_DOWN]:
-            self.y += self.vel
+            if keys[pygame.K_UP]:
+                self.y -= self.vel
+
+            if keys[pygame.K_DOWN]:
+                self.y += self.vel
+        else:
+            self.x == data["x"]
+            self.y == data["y"]
         
         self.rect = (self.x,self.y,self.width,self.height)
 
@@ -65,22 +66,34 @@ def main():
     n = Network()
 
     #startPos = n.getPos()
-    p = Player(50,50,100,100,(0,255,0))
+    p = Player(50,50,100,100,(0,255,0)) #player should be init fron network?
 
-    elapsedTime = 0 #variable for counting ticks since init
-    clock = pygame.time.Clock() #keep track of ticks
+    #elapsedTime = 0 #variable for counting ticks since init
+    #clock = pygame.time.Clock() #keep track of ticks
+    p2Connected = False
+    enemyUsername = None
     while run:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
                 pygame.quit()
 
-        dt = clock.tick() #the following method returns the time since its last call in milliseconds
-        elapsedTime += dt
+        #dt = clock.tick() #the following method returns the time since its last call in milliseconds
+        #lapsedTime += dt
 
         p.move() #checks for key prsses, and moves charachter
 
         n.sendPos(p.getPos())
+        
+        
+        if n.checkEnemyConnected() != False and p2Connected == False:
+            enemyUsername = n.checkEnemyConnected()
+            p2 = Player(50,50,100,100,(0,0,255))
+            p2Connected = True
+        
+        if p2Connected == True:
+            p2.move(n.getEnemyPos())
+            redrawWindow(win,p2)
         
         redrawWindow(win,p)
 
