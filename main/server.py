@@ -82,7 +82,6 @@ class Client:
                 break
             self.x = self.data["x"]
             self.y = self.data["y"]
-
     def getPos(self):
         return {"x":self.x,"y":self.y}
 
