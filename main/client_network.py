@@ -9,6 +9,9 @@ class Network():
         self.port = 5555
         self.addr = (self.server,self.port)
         self.BUFSIZ = 2048
+
+
+    def connect(self):
         self.client.connect(self.addr)
         self.username = self.connectionInit("test")
         self.enemyUsername = None
@@ -74,9 +77,8 @@ class Network():
                 self.recv = self.client.recv(self.BUFSIZ).decode("utf8")
                 self.data = json.loads(self.recv)
                 if self.data["requestType"] == "enemyLoc":
-                    self.enemyPos = self.data
-
-                #check if data being recived is pos data?
+                    self.enemyPos = self.data #check if data being recived is pos data
+            
             except Exception as e:
                 print("error:",e)
             
