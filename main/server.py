@@ -21,9 +21,10 @@ except socket.error as e:
 
 class Client:
     def __init__(self,user,addr):
+        self.connected = True
         self.user = user
         self.addr = addr
-        self.BUFSIZ = 2048
+        self.BUFSIZ = 3000
         self.username = None
         self.loggedIn = False
         self.loginThread = threading.Thread(target=self.login, args=(self.user,self.addr,))
@@ -31,21 +32,63 @@ class Client:
         
         self.x = 0
         self.y = 0 
-        self.reciveThread = threading.Thread(target=self.recivePos)
-        self.reciveThread.start()
+
         #self.sendThread = threading.Thread(target=self.send)
+
+    def disconnect(self):
+            self.connected = False
+            print(self.addr, "client disconnected")
+            self.user.close()
+            clients.remove(self)
+            self.loggedIn =  False
+            self.username = None
+
+    def isconnected(self):
+        return self.connected
+
+    def send(self,data):
+        if self.connected == True:
+            try:
+                serialized_data = json.dumps(data) #serialize data
+                self.user.sendall(bytes(serialized_data, "utf8")) ### SENDS LOGIN DATA TO SERVER [loginRequest,username]
+                return True
+            except socket.error as e:
+                self.disconnect()
+
+                return False
+            except Exception as e:
+                print("Failed to send", e)
+                return False
+        else:
+            return False
+    def recive(self):
+        response = {}
+        if self.connected == True:
+            if not self.user.recv:
+                self.disconnect()
+                return {"requestType":"disconnected"}
+            try:
+                response = json.loads(self.user.recv(self.BUFSIZ).decode("utf8")) ### WAITS FOR DATA TO BE RETURNED
+                if response != None:
+                    return response
+                else:
+                    return {"requestType":"noResponse"}
+            except Exception as e:
+                print("Invalid response from:",self.addr, e)
+                return {"requestType":"reciveError"}
+        else:
+            return {"requestType":"disconnected"}
 
     def login(self,client,client_address): #pulled from previous messaging project
         #Then wait for login
         while True:
-            loginData = client.recv(self.BUFSIZ).decode("utf8")
-            data = json.loads(loginData)
+            loginData = self.recive()
+            if loginData["requestType"] == "disconnected":
+                break
 
-            if data["requestType"] != "loginRequest":
-                print("%s:%s invalid login request." % client_address)
-
-            else:
-                username = data["username"]
+            if loginData["requestType"] == "loginRequest":
+                username = loginData["username"]
+            
             #password = data["password"]
             #if username in clients.keys():
             #    loginReq = json.dumps({"requestType":"loginRequest","loginR":False,"reason":"Already logged in"})
@@ -59,11 +102,15 @@ class Client:
                     #return False
                 #elseif username and pass mach
             
-                loginReq = json.dumps({"requestType":"loginRequest","loginR":True})
-                client.send(bytes(loginReq, "utf8"))
+                loginReq = {"requestType":"loginRequest","loginR":True}
+                self.send(loginReq)
                 print("confirmed login:",username,"at","%s:%s" % client_address)
                 self.username = username
                 self.loggedIn = True
+
+                self.reciveThread = threading.Thread(target=self.recivePos)
+                self.reciveThread.start()
+
                 break
 
                 #pass
@@ -76,24 +123,17 @@ class Client:
 
 
     def recivePos(self):
-
-        #takes in jason data and decodes, then uses data to update player attributes stored within this class.
-        self.data = {}
         while True:
-            while self.loggedIn == True:
-                try:
-                    self.recv = self.user.recv(self.BUFSIZ).decode("utf8")
-                    self.data = json.loads(self.recv)
-                    self.x = self.data["x"]
-                    self.y = self.data["y"]
-                except Exception as e:
-                    print("error:",e)
+            data = self.recive()
+            print(data)
+            if data["requestType"] == "disconnected":
+                break
+
+            if data["requestType"] == "posData":
+                self.x = self.data["x"]
+                self.y = self.data["y"]
             
-                if not self.recv:
-                    print("Disconnected")
-                    print(self.addr, "has lost connection")
-                    self.user.close()
-                    break
+ 
                 
 
             
@@ -121,9 +161,13 @@ class Battle:
 
     def initBattle(self):
         while True:
-            if self.sendReq(self.client1,self.client2) == True and self.sendReq(self.client2,self.client1) == True:
-                t1 = threading.Thread(target=self.sendpos,args=(self.client1,self.client2))
-                t2 = threading.Thread(target=self.sendpos,args=(self.client2,self.client1))
+            c1req = self.sendReq(self.client1,self.client2)
+            c2req = self.sendReq(self.client2,self.client1)
+            if c1req == "disconnected" or c2req == "disconnected":
+                break
+            if  c1req == True and c2req == True:
+                t1 = threading.Thread(target=self.sendPos,args=(self.client1,self.client2))
+                t2 = threading.Thread(target=self.sendPos,args=(self.client2,self.client1))
                 t1.start()
                 t2.start()
                 break
@@ -131,32 +175,25 @@ class Battle:
         
     
     def sendReq(self,player1,player2):
-        self.battleReq = {"requestType":"battleReq","enemyU":player2.getUsername()}
-        self.serialized = json.dumps(self.battleReq) #serialize data
-        try:
-            player1.user.sendall(bytes(self.serialized, "utf8")) ### SENDS LOGIN DATA TO SERVER [battleRequest,enemyu]
-        except Exception as e:
-            print("error",e)
+        battleReq = {"requestType":"battleReq","enemyU":player2.getUsername()}
+        player1.send(battleReq)
+        response = player1.recive()
 
-        try:
-            response = json.loads(self.player1.user.recv(self.BUFSIZ).decode("utf8")) ### WAITS FOR DATA TO BE RETURNED
+        if response["requestType"] == "disconnected":
+            return 'disconneted'
 
-            if response["requestType"]=="battleReq" and response["battleAccepted"]==True: 
-                print(player1.getUsername(), "has accepted the battle")
-                return True
-            else:
-                return False      
-        except:
-            print("Invalid response from server")
-            return False
+        if response["requestType"]=="battleReq" and response["battleAccepted"]==True: 
+            print(player1.getUsername(), "has accepted the battle")
+            return True
+            
+        else:
+            return False      
+
 
     def sendPos(self,sender,reciver):
-        while True:
-            try:
-                self.serialized = json.dumps(sender.getPos().update({"requestType":"enemyLoc"})) #serialize data
-                reciver.sendall(bytes(self.serialized, "utf8")) ### SENDS DATA
-            except socket.error as e:
-                print ("Send error:", e)
+        while sender.isconnected() == True and reciver.isconnected() == True:
+            data = (sender.getPos().update({"requestType":"posData"}))
+            reciver.send(data)
 
 
         
@@ -166,14 +203,16 @@ class Battle:
 
 
 
-    
+flag = False    
 while True:
     user, addr = s.accept()
     print("Incoming connection from:",addr)
     client = Client(user,addr) #client should not be a thread
     clients.append(client)
-    if len(clients) == 2:
+    
+    if len(clients) == 2 and flag == False:
         threadBattle = threading.Thread(target=Battle, args=(clients[0],clients[1],))
         threadBattle.start() 
+        flag = True
 
     
