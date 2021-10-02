@@ -47,37 +47,21 @@ class Client:
         return self.connected
 
     def send(self,data):
-        if self.connected == True:
-            try:
-                serialized_data = json.dumps(data) #serialize data
-                self.user.sendall(bytes(serialized_data, "utf8")) ### SENDS LOGIN DATA TO SERVER [loginRequest,username]
-                return True
-            except socket.error as e:
-                self.disconnect()
+        serialized_data = json.dumps(data) #serialize data
+        self.user.sendall(bytes(serialized_data, "utf8")) ### SENDS LOGIN DATA TO SERVER [loginRequest,username]
 
-                return False
-            except Exception as e:
-                print("Failed to send", e)
-                return False
-        else:
-            return False
     def recive(self):
-        response = {}
-        if self.connected == True:
-            if not self.user.recv:
-                self.disconnect()
-                return {"requestType":"disconnected"}
-            try:
-                response = json.loads(self.user.recv(self.BUFSIZ).decode("utf8")) ### WAITS FOR DATA TO BE RETURNED
-                if response != None:
-                    return response
-                else:
-                    return {"requestType":"noResponse"}
-            except Exception as e:
-                print("Invalid response from:",self.addr, e)
-                return {"requestType":"reciveError"}
-        else:
-            return {"requestType":"disconnected"}
+        try:
+            response = json.loads(self.user.recv(self.BUFSIZ).decode("utf8")) ### WAITS FOR DATA TO BE RETURNED
+            if not response:
+                print("disconnected")
+            else:
+                return response
+        except:
+            print("error")
+            
+        
+            
 
     def login(self,client,client_address): #pulled from previous messaging project
         #Then wait for login
@@ -126,12 +110,10 @@ class Client:
         while True:
             data = self.recive()
             print(data)
-            if data["requestType"] == "disconnected":
-                break
 
             if data["requestType"] == "posData":
-                self.x = self.data["x"]
-                self.y = self.data["y"]
+                self.x = data["x"]
+                self.y = data["y"]
             
  
                 

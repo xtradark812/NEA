@@ -35,35 +35,18 @@ class Network():
     #         return False
 
     def send(self,data):
-        try:
-            serialized_data = json.dumps(data) #serialize data
-            self.client.sendall(bytes(serialized_data, "utf8")) ### SENDS DATA TO SERVER 
-            return True
-        except socket.error as e:
-            print("server disconnected")
-            self.client.close()
-            self.connected = False
-            self.enemyUsername = None
-            return False
-        except Exception as e:
-            print("Invalid response from server", e)
-            return False
+        serialized_data = json.dumps(data) #serialize data
+        self.client.sendall(bytes(serialized_data, "utf8")) ### SENDS DATA TO SERVER 
+
 
     def recive(self):
-        try:
-            response = self.client.recv(self.BUFSIZ) ### WAITS FOR DATA TO BE RETURNED
-            if not self.client.recv:
-                print("Disconnected")
-                self.client.close()
-                self.connected = False
-                self.enemyUsername = None
-                return {"requestType":"disconnected"}
-            else:
-                deserialized = json.loads(response.decode("utf8"))
-                return deserialized
-        except Exception as e:
-            print("Invalid response from server", e)
-            return {"requestType":"reciveError"}
+        response = self.client.recv(self.BUFSIZ) ### WAITS FOR DATA TO BE RETURNED
+        if not response:
+            print("disconnected")
+        else:
+            deserialized = json.loads(response.decode("utf8"))
+            return deserialized
+
         
 
     def connect(self):
@@ -215,7 +198,7 @@ class Player(pygame.sprite.Sprite):
         self.rect.center = (self.x, self.y)
 
     def getPos(self):
-        return {"x":self.x,"y":self.y}
+        return {"requestType":"posData","x":self.x,"y":self.y}
 
 
     
@@ -235,7 +218,7 @@ def main():
     run = True
     
     n = Network()
-    connected = n.connect()
+    n.connect()
     n.startMatch()
 
     # #startPos = n.getPos()
@@ -274,8 +257,8 @@ def main():
         p.move() #checks for key prsses, and moves charachter
         render(win,all_sprites) #RENDER
 
-        pos = p.getPos().update({"requestType":"posData"})
-        n.send(pos)
+
+        n.send(p.getPos())
         
 
         if n.enemyConnected() != False and enemyUsername == None:
