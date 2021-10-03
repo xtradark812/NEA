@@ -31,13 +31,21 @@ class Client:
         self.BUFSIZ = 3000
         self.username = None
         self.loggedIn = False
-        self.loginThread = threading.Thread(target=self.login, args=(self.user,self.addr,))
-        self.loginThread.start()
+
         
         self.x = 0
         self.y = 0 
 
         #self.sendThread = threading.Thread(target=self.send)
+
+    def main(self):
+        while self.loggedIn != True:
+            self.login()
+        while self.loggedIn == True:
+            data = self.recive()
+            if data["requestType"] == "posData":
+                self.x = data["x"]
+                self.y = data["y"]
 
     def disconnect(self):
             self.connected = False
@@ -67,15 +75,12 @@ class Client:
         
             
 
-    def login(self,client,client_address): #pulled from previous messaging project
+    def login(self): #pulled from previous messaging project
         #Then wait for login
-        while True:
-            loginData = self.recive()
-            if loginData["requestType"] == "disconnected":
-                break
+        loginData = self.recive()
 
-            if loginData["requestType"] == "loginRequest":
-                username = loginData["username"]
+        if loginData["requestType"] == "loginRequest":
+            username = loginData["username"]
             
             #password = data["password"]
             #if username in clients.keys():
@@ -90,16 +95,12 @@ class Client:
                     #return False
                 #elseif username and pass mach
             
-                loginReq = {"requestType":"loginRequest","loginR":True}
-                self.send(loginReq)
-                print("confirmed login:",username,"at","%s:%s" % client_address)
-                self.username = username
-                self.loggedIn = True
-
-                self.reciveThread = threading.Thread(target=self.recivePos)
-                self.reciveThread.start()
-
-                break
+            loginReq = {"requestType":"loginRequest","loginR":True}
+            self.send(loginReq)
+            print("confirmed login:",username,"at","%s:%s" % self.addr)
+            self.username = username
+            self.loggedIn = True
+            return True
 
                 #pass
 
@@ -109,21 +110,8 @@ class Client:
     #     self.user.send(str.encode(data))
     #     self.reply = ""
 
-
-    def recivePos(self):
-        while True:
-            data = self.recive()
-            print(data)
-
-            if data["requestType"] == "posData":
-                self.x = data["x"]
-                self.y = data["y"]
             
  
-                
-
-            
-    
     def getPos(self):
         return {"x":self.x,"y":self.y}
 
@@ -152,10 +140,7 @@ class Battle:
             if c1req == "disconnected" or c2req == "disconnected":
                 break
             if  c1req == True and c2req == True:
-                t1 = threading.Thread(target=self.sendPos,args=(self.client1,self.client2))
-                t2 = threading.Thread(target=self.sendPos,args=(self.client2,self.client1))
-                t1.start()
-                t2.start()
+                self.sendPos(self.client1,self.client2)
                 break
 
         
@@ -176,10 +161,12 @@ class Battle:
             return False      
 
 
-    def sendPos(self,sender,reciver):
-        while sender.isconnected() == True and reciver.isconnected() == True:
-            data = (sender.getPos().update({"requestType":"posData"}))
-            reciver.send(data)
+    def sendPos(self,p1,p2):
+        while p1.isconnected() == True and p2.isconnected() == True:
+            data1 = (p1.getPos().update({"requestType":"posData"}))
+            p2.send(data)
+            data2 = (p2.getPos().update({"requestType":"posData"}))
+            p1.send(data)
 
 
         
@@ -195,10 +182,10 @@ while True:
     print("Incoming connection from:",addr)
     client = Client(user,addr) #client should not be a thread
     clients.append(client)
+    client.main()
     
     if len(clients) == 2 and flag == False:
-        threadBattle = threading.Thread(target=Battle, args=(clients[0],clients[1],))
-        threadBattle.start() 
+        battle = Battle(clients[0],clients[1])
         flag = True
 
     
