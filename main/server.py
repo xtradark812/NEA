@@ -2,10 +2,12 @@
 #REDUCE THE AMMOUNT OF THREADS
 
 
+from json.decoder import JSONDecoder
 import socket
 import threading
 import sys
 import json
+import pickle
 server = "127.0.0.1"
 port = 5555
 
@@ -25,27 +27,96 @@ except socket.error as e:
 
 class Client:
     def __init__(self,user,addr):
+        print("initializing connection with",addr)
         self.connected = True
         self.user = user
         self.addr = addr
-        self.BUFSIZ = 3000
+        self.BUFSIZ = 1024
         self.username = None
         self.loggedIn = False
 
-        
+        self.pendingBattle = False
+        self.enemyUsername = None
+        self.battleAccepted = False
+
         self.x = 0
         self.y = 0 
 
         #self.sendThread = threading.Thread(target=self.send)
 
+    def send(self,data):
+        print(data)
+        serialized_data = json.dumps(data) #serialize data
+        self.user.sendall(bytes(serialized_data, "utf8")) ### SENDS LOGIN DATA TO SERVER [loginRequest,username]
+
+    def recive(self):
+        
+        decoder = JSONDecoder()
+        try:
+            data = self.user.recv(self.BUFSIZ).decode("utf8")
+            if not data:
+                print("disconnected")
+            else:
+                i = 0
+                string = False
+                isdict = False
+                newData = ""
+                finalData = ""
+                for char in data:
+                    if char == "{" and string == False:
+                        newData = data[i:]
+                        isdict = True
+                    if char == "}" and isdict == True and string == False:
+                        finalData = newData[:i+1]
+                        string = True
+                    i+=1
+                if string == False:
+                    tryAgain = self.recive()
+                    return tryAgain
+                
+                response, index = decoder.raw_decode(finalData) ### WAITS FOR DATA TO BE RETURNED
+                print(response)
+                return response
+            
+
+        except Exception as e:
+            print("error",e)
+            
+        
+            
     def main(self):
+        battleSent =  False
+        print("client initialised. beginning main loop",self.addr)
         while self.loggedIn != True:
             self.login()
         while self.loggedIn == True:
-            data = self.recive()
-            if data["requestType"] == "posData":
-                self.x = data["x"]
-                self.y = data["y"]
+            if self.pendingBattle == True and self.battleAccepted == False and battleSent == False:
+                print("preparing to send battle request")
+                battleReq = {"requestType":"battleReq","enemyU":self.enemyUsername}
+                self.send(battleReq)
+                print("sent battle request to",self.username)
+                battleSent = True
+            if battleSent == True and self.battleAccepted == False and self.pendingBattle == True:
+                response = self.recive()
+                if response["requestType"]=="battleReq" and response["battleAccepted"]==True: 
+                    print(self.getUsername(), "has accepted the battle")
+                    self.send({"requestType":"battleReq","battleAccepted":True})
+                    self.battleAccepted = True
+                    print("reciving pos data")
+            if self.battleAccepted == True:
+                data = self.recive()
+                if data["requestType"] == "posData":
+                    self.x = data["x"]
+                    self.y = data["y"]
+            
+
+
+    def startBattle(self,enemyU):
+        self.enemyUsername = enemyU
+        self.pendingBattle = True
+
+    def checkBattleAccepted(self):
+        return self.battleAccepted
 
     def disconnect(self):
             self.connected = False
@@ -57,23 +128,11 @@ class Client:
 
     def isconnected(self):
         return self.connected
+    
+    def isLoggedIn(self):
+        return self.loggedIn
 
-    def send(self,data):
-        serialized_data = json.dumps(data) #serialize data
-        self.user.sendall(bytes(serialized_data, "utf8")) ### SENDS LOGIN DATA TO SERVER [loginRequest,username]
-
-    def recive(self):
-        try:
-            response = json.loads(self.user.recv(self.BUFSIZ).decode("utf8")) ### WAITS FOR DATA TO BE RETURNED
-            if not response:
-                print("disconnected")
-            else:
-                return response
-        except:
-            print("error")
-            
-        
-            
+    
 
     def login(self): #pulled from previous messaging project
         #Then wait for login
@@ -129,44 +188,25 @@ class Battle:
         
         self.client1 = client1
         self.client2 = client2
-        battleThread = threading.Thread(target=self.initBattle)
-        battleThread.start()
+
 
 
     def initBattle(self):
         while True:
-            c1req = self.sendReq(self.client1,self.client2)
-            c2req = self.sendReq(self.client2,self.client1)
-            if c1req == "disconnected" or c2req == "disconnected":
-                break
-            if  c1req == True and c2req == True:
+            self.client1.startBattle(self.client2.getUsername())
+            self.client2.startBattle(self.client1.getUsername())
+
+            if  self.client1.checkBattleAccepted() == True and self.client2.checkBattleAccepted() == True:
                 self.sendPos(self.client1,self.client2)
                 break
-
-        
-    
-    def sendReq(self,player1,player2):
-        battleReq = {"requestType":"battleReq","enemyU":player2.getUsername()}
-        player1.send(battleReq)
-        response = player1.recive()
-
-        if response["requestType"] == "disconnected":
-            return 'disconneted'
-
-        if response["requestType"]=="battleReq" and response["battleAccepted"]==True: 
-            print(player1.getUsername(), "has accepted the battle")
-            return True
-            
-        else:
-            return False      
 
 
     def sendPos(self,p1,p2):
         while p1.isconnected() == True and p2.isconnected() == True:
             data1 = (p1.getPos().update({"requestType":"posData"}))
-            p2.send(data)
+            p2.send(data1)
             data2 = (p2.getPos().update({"requestType":"posData"}))
-            p1.send(data)
+            p1.send(data2)
 
 
         
@@ -174,18 +214,25 @@ class Battle:
 
 
 
+def battleWait():
+    flag = False
+    while flag == False:
+        if len(clients) == 2 and clients[0].isLoggedIn() == True and clients[1].isLoggedIn() == True:
+            battle = Battle(clients[0],clients[1])
+            battle.initBattle()
+            flag = True
 
 
-flag = False    
+battlestart = threading.Thread(target=battleWait)
+battlestart.start()
 while True:
     user, addr = s.accept()
     print("Incoming connection from:",addr)
     client = Client(user,addr) #client should not be a thread
     clients.append(client)
-    client.main()
-    
-    if len(clients) == 2 and flag == False:
-        battle = Battle(clients[0],clients[1])
-        flag = True
+    thread = threading.Thread(target=client.main)
+    thread.start()
+
+
 
     

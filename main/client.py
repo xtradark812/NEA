@@ -1,11 +1,11 @@
-
-
+from json.decoder import JSONDecoder
 
 import pygame
 import sys
 import socket
 import json
 import threading
+
 
 width = 500
 height = 500
@@ -23,7 +23,7 @@ class Network():
         self.server = "127.0.0.1"
         self.port = 5555
         self.addr = (self.server,self.port)
-        self.BUFSIZ = 3000
+        self.BUFSIZ = 1024
         self.connected = False
         self.enemyUsername = None
 
@@ -38,18 +38,42 @@ class Network():
     #         return False
 
     def send(self,data):
+        print(data)
         serialized_data = json.dumps(data) #serialize data
         self.client.sendall(bytes(serialized_data, "utf8")) ### SENDS DATA TO SERVER 
 
 
     def recive(self):
-        response = self.client.recv(self.BUFSIZ) ### WAITS FOR DATA TO BE RETURNED
-        if not response:
-            print("disconnected")
-        else:
-            deserialized = json.loads(response.decode("utf8"))
-            return deserialized
+        decoder = JSONDecoder()
+        try:
+            data = self.client.recv(self.BUFSIZ).decode("utf8")
+            if not data:
+                print("disconnected")
+            else:
+                i = 0
+                string = False
+                isdict = False
+                newData = ""
+                finalData = ""
+                for char in data:
+                    if char == "{" and string == False:
+                        newData = data[i:]
+                        isdict = True
+                    if char == "}" and isdict == True and string == False:
+                        finalData = newData[:i+1]
+                        string = True
+                    i+=1
+                if string == False:
+                    tryAgain = self.recive()
+                    return tryAgain
+                
 
+                response, index = decoder.raw_decode(finalData) ### WAITS FOR DATA TO BE RETURNED
+                print(response)
+                return response
+
+        except Exception as e:
+            print("error",e)
         
 
     def connect(self):
@@ -65,18 +89,14 @@ class Network():
         if self.username == None:
             return False
         elif self.username != None:
+            print("connected")
             return True
 
     def startMatch(self):
         if self.connected == True:
             self.enemyUsername = None
             self.enemyPos = None
-            self.waitForEnemyThread = threading.Thread(target=self.waitForBattle)
-            self.waitForEnemyThread.start()
-            return True
-        else:
-            return False
-
+            self.waitForBattle()
     #def getPos(self):
      #   return self.pos
     
@@ -87,12 +107,10 @@ class Network():
         self.send(loginReq)
         response = self.recive()
 
-        if response["requestType"] == "disconnected":
-            return None
-            
         if response["requestType"]=="loginRequest" and response["loginR"]==True: 
             print("logged in as", username)
             return username
+        
         else:
             return None
 
@@ -104,33 +122,31 @@ class Network():
 
     
     def waitForBattle(self):
+        battleRecived = False
         while True:
             response = self.recive()
 
-            if response["requestType"] == "disconnected":
-                break
-
-            if response["requestType"]=="battleReq": 
-                print("starting a battle with", response["enemyU"])
+            if response["requestType"]=="battleReq" and battleRecived == False: 
                 accept = {"requestType":"battleReq","battleAccepted":True}
+                battleRecived = True
+            if battleRecived == True:
                 self.send(accept)
-                self.enemyUsername = response["enemyU"]
-                recivePosThread = threading.Thread(target=self.recivePosData)
-                recivePosThread.start()
-                break
+                confirm = self.recive()
+                if confirm == accept:
+                    print("starting a battle with", response["enemyU"])
+                    self.enemyUsername = response["enemyU"]
+                    self.recivePosData()
+                    break
 
 
     def recivePosData(self):
         while True:
             data = self.recive()
-
-            if data["requestType"] == "disconnected":
-                break
-
-            if data["requestType"] == "posData":
-                self.enemyPos = data #check if data being recived is pos data
-            if data["requestType"] == "opponentDisconnect":
-                self.enemyUsername = None
+            if data != None:
+                if data["requestType"] == "posData":
+                    self.enemyPos = data #check if data being recived is pos data
+                if data["requestType"] == "opponentDisconnect":
+                    self.enemyUsername = None
                 break
             
 
@@ -178,26 +194,27 @@ class Player(pygame.sprite.Sprite):
     #def draw(self,win):
     #    pygame.draw.rect(win,self.color,self.rect)
     
-    def move(self,data=None):
-        
-        if data == None:
-            keys = pygame.key.get_pressed()
+    def move(self):
+        keys = pygame.key.get_pressed()
 
-            if keys[pygame.K_LEFT]:
-                self.x -= self.vel
+        if keys[pygame.K_LEFT]:
+            self.x -= self.vel
 
-            if keys[pygame.K_RIGHT]:
-                self.x += self.vel
+        if keys[pygame.K_RIGHT]:
+            self.x += self.vel
 
-            if keys[pygame.K_UP]:
-                self.y -= self.vel
+        if keys[pygame.K_UP]:
+            self.y -= self.vel
 
-            if keys[pygame.K_DOWN]:
-                self.y += self.vel
-        else:
-            self.x = data["x"]
-            self.y = data["y"]
-        
+        if keys[pygame.K_DOWN]:
+            self.y += self.vel
+        self.rect.center = (self.x, self.y)
+
+
+    
+    def dataMove(self,data):
+        self.x = data["x"]
+        self.y = data["y"]
         self.rect.center = (self.x, self.y)
 
     def getPos(self):
@@ -222,7 +239,9 @@ def main():
     
     n = Network()
     n.connect()
-    n.startMatch()
+    thread = threading.Thread(target=n.startMatch)
+    thread.start()
+
 
     # #startPos = n.getPos()
     # p = Player(50,50,100,100,(0,255,0)) #player should be init fron network?
@@ -261,15 +280,17 @@ def main():
         render(win,all_sprites) #RENDER
 
 
-        n.send(p.getPos())
         
 
         if n.enemyConnected() != False and enemyUsername == None:
+            print("initializing enemy sprite")
             enemyUsername = n.enemyConnected()
             p2 = Player(50,50,255,0,0)
             all_sprites.add(p2)
         elif n.enemyConnected() != False and enemyUsername != None:
-            p2.move(n.enemyPos())
+            n.send(p.getPos())
+            p2.dataMove(n.enemyPos())
+            print(n.enemyPos())
 
 
 
