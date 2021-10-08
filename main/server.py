@@ -28,7 +28,7 @@ except socket.error as e:
 class Client:
     def __init__(self,user,addr):
         print("initializing connection with",addr)
-        self.connected = True
+        self.connected = False
         self.user = user
         self.addr = addr
         self.BUFSIZ = 1024
@@ -41,11 +41,13 @@ class Client:
 
         self.x = 0
         self.y = 0 
+        mainThread = threading.Thread(target=self.main)
+        mainThread.start()
 
         #self.sendThread = threading.Thread(target=self.send)
 
     def send(self,data):
-        print(data)
+        print("send:",data)
         serialized_data = json.dumps(data) #serialize data
         self.user.sendall(bytes(serialized_data, "utf8")) ### SENDS LOGIN DATA TO SERVER [loginRequest,username]
 
@@ -55,8 +57,14 @@ class Client:
         try:
             data = self.user.recv(self.BUFSIZ).decode("utf8")
             if not data:
+                self.disconnect()
                 print("disconnected")
             else:
+
+                #this part of the function will fix broken pakets.
+                #when the client tries to send hundreds of json objects a seccond, sometimes the objects get stuck together
+                #to solve this problem, this algorithim find exactly the data that is needed from each sent item, and strips off everything else
+                #if it does not work (e.g. the server recives incomplete data like "123}"), it will call itself and try again
                 i = 0
                 string = False
                 isdict = False
@@ -75,21 +83,37 @@ class Client:
                     return tryAgain
                 
                 response, index = decoder.raw_decode(finalData) ### WAITS FOR DATA TO BE RETURNED
-                print(response)
+                print("response",response)
                 return response
             
-
+        except socket.timeout:
+            return {"requestType":"timeout"}
         except Exception as e:
             print("error",e)
+            return {"requestType":e}
             
-        
-            
-    def main(self):
-        battleSent =  False
-        print("client initialised. beginning main loop",self.addr)
-        while self.loggedIn != True:
-            self.login()
-        while self.loggedIn == True:
+    def requestHandler(self):
+        while self.pendingBattle == False: #if there is nothing going on, wait for a request
+            self.user.settimeout(1) 
+            data = self.recive()
+
+            if data["requestType"] == "startBattle":
+                opponentU = data["enemyU"]
+                for client in clients:
+                    if client.getUsername() == opponentU and client.isconnected() == True and client.isLoggedIn() == True:
+                        battle = Battle(client,self)
+
+            elif data["requestType"] == "getOnlineUsers":
+                print("sending list")
+                clientList = []
+                for client in clients:
+                    if client.isconnected() == True and client.isLoggedIn() == True:
+                        clientList.append(client.getUsername())
+                self.send({"requestType":"getOnlineUsers","onlineUsers":clientList})
+                    
+    def waitForBattle(self):
+        while self.loggedIn == True: # MAIN LOOP FOR EACH CHIELT, HANDLES ALL REQUESTS 
+            battleSent = False
             if self.pendingBattle == True and self.battleAccepted == False and battleSent == False:
                 print("preparing to send battle request")
                 battleReq = {"requestType":"battleReq","enemyU":self.enemyUsername}
@@ -108,6 +132,19 @@ class Client:
                 if data["requestType"] == "posData":
                     self.x = data["x"]
                     self.y = data["y"]
+
+    def main(self):
+        print("client initialised. beginning main loop",self.addr)
+        if self.loggedIn != True:
+            self.login()
+        if self.loggedIn == True:
+            requestHandlerThread = threading.Thread(target=self.requestHandler)
+            waitforbattlethread = threading.Thread(target=self.waitForBattle)
+            requestHandlerThread.start()
+            waitforbattlethread.start()
+
+
+            
             
 
 
@@ -159,6 +196,7 @@ class Client:
             print("confirmed login:",username,"at","%s:%s" % self.addr)
             self.username = username
             self.loggedIn = True
+            self.connected = True
             return True
 
                 #pass
@@ -172,7 +210,7 @@ class Client:
             
  
     def getPos(self):
-        return {"x":self.x,"y":self.y}
+        return {"requestType":"posData","x":self.x,"y":self.y}
 
     def getUsername(self):
         return self.username
@@ -188,6 +226,8 @@ class Battle:
         
         self.client1 = client1
         self.client2 = client2
+        battlethread = threading.Thread(target=self.initBattle)
+        battlethread.start()
 
 
 
@@ -203,9 +243,9 @@ class Battle:
 
     def sendPos(self,p1,p2):
         while p1.isconnected() == True and p2.isconnected() == True:
-            data1 = (p1.getPos().update({"requestType":"posData"}))
+            data1 = (p1.getPos())
             p2.send(data1)
-            data2 = (p2.getPos().update({"requestType":"posData"}))
+            data2 = (p2.getPos())
             p1.send(data2)
 
 
@@ -214,24 +254,23 @@ class Battle:
 
 
 
-def battleWait():
-    flag = False
-    while flag == False:
-        if len(clients) == 2 and clients[0].isLoggedIn() == True and clients[1].isLoggedIn() == True:
-            battle = Battle(clients[0],clients[1])
-            battle.initBattle()
-            flag = True
+# def battleWait():
+#     flag = False
+#     while flag == False:
+#         if len(clients) == 2 and clients[0].isLoggedIn() == True and clients[1].isLoggedIn() == True:
+#             battle = Battle(clients[0],clients[1])
+#             battle.initBattle()
+#             flag = True
 
 
-battlestart = threading.Thread(target=battleWait)
-battlestart.start()
+# battlestart = threading.Thread(target=battleWait)
+# battlestart.start()
 while True:
     user, addr = s.accept()
     print("Incoming connection from:",addr)
     client = Client(user,addr) #client should not be a thread
     clients.append(client)
-    thread = threading.Thread(target=client.main)
-    thread.start()
+
 
 
 
