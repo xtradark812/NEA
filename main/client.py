@@ -187,43 +187,66 @@ class Network():
 
 class Player(pygame.sprite.Sprite):
     def __init__(self,x,y,r,g,b):
+        self.playerWidth = 120
+        self.playerHeight = 240
 
         pygame.sprite.Sprite.__init__(self) #sprite init function (required by pygame)
         
-        self.x = x
-        self.y = y 
+        self.x = width/4 #need to check which side to spawn on
+        self.y = height -self.playerHeight/2 #replace 50 with height from real x
 
         self.color = r,g,b
 
-        self.vel = .5
+        self.vel = 10
+
 
         
 
-        self.image = pygame.Surface((50, 50)) #temporarly a square
+        self.image = pygame.Surface((self.playerWidth, self.playerHeight)) #temporarly a square
         self.image.fill(self.color)  #temporarily a square
 
         self.rect = self.image.get_rect() #will  define players hitbox as size of the image
 
         self.rect.center = (self.x, self.y)
 
+        #states
+        self.jumping = False
+        self.jumpcount = 10
+        self.doubleJumped = False
 
     #def draw(self,win):
     #    pygame.draw.rect(win,self.color,self.rect)
     
     def move(self):
+        wait = 1
         keys = pygame.key.get_pressed()
 
-        if keys[pygame.K_LEFT]:
+        if keys[pygame.K_LEFT] and self.x > self.vel + self.playerWidth/2:
             self.x -= self.vel
 
-        if keys[pygame.K_RIGHT]:
+        if keys[pygame.K_RIGHT] and self.x < width - self.vel - self.playerWidth/2 : #replace width
             self.x += self.vel
 
-        if keys[pygame.K_UP]:
-            self.y -= self.vel
+        if keys[pygame.K_UP] and self.y > self.vel + self.playerHeight/2 and self.jumping == False:
+            self.jumping = True
+            wait = 0
 
-        if keys[pygame.K_DOWN]:
-            self.y += self.vel
+        # if keys[pygame.K_DOWN] and self.y < height - 100/2 - self.vel: CROUCH
+        #     self.y += self.vel
+
+        if self.jumping == True and wait == 1:
+            if self.jumpcount >= -10: #replace with jumpcount original
+                self.y -= self.jumpcount * abs(self.jumpcount) #Quadradic formula for jump
+                self.jumpcount -= 1
+            if self.doubleJumped == False and keys[pygame.K_UP] and self.jumpcount < 0 :
+                self.doubleJumped = True
+                self.jumpcount = 10
+            if self.jumpcount == -10:
+                self.jumpcount = 10 #reset jump count
+                self.jumping = False
+
+
+
         self.rect.center = (self.x, self.y)
 
 
@@ -278,7 +301,7 @@ def loadNetwork():
     return n
 
 def mainMenu():
-    buttons = [Button("Start",width/3,height/3,(0,255,0))]
+    buttons = [Button("Start",width/2,height/2,(0,255,0))]
     menuScreen = True
     while menuScreen:
         
@@ -293,7 +316,7 @@ def mainMenu():
                 pos = pygame.mouse.get_pos()
                 for button in buttons:
                     if button.click(pos):
-                        pass
+                        main()
                         #START GAME
         
         
@@ -301,7 +324,7 @@ def mainMenu():
         font = pygame.font.Font('freesansbold.ttf',115)
         textSurface = font.render('project-steel', True, (0,0,0))
         TextRect = textSurface.get_rect()
-        TextRect.center = ((width/2),(height/2))
+        TextRect.center = ((width/2),(height/6))
         win.blit(textSurface, TextRect)
 
         for button in buttons:
@@ -311,8 +334,8 @@ def mainMenu():
         
 
 
-def main(n):
-
+def main():
+    
     run = True
     
     elapsedTime = 0 #variable for counting ticks since init
@@ -326,7 +349,7 @@ def main(n):
     
 
     while run:
-
+        pygame.time.delay(30)
         # if n.isConnected() == False:
         #     break
 
@@ -338,7 +361,7 @@ def main(n):
                 break
 
         
-
+                    
         
 
         # n.sendPos(p.getPos())
@@ -352,14 +375,14 @@ def main(n):
 
         
 
-        if n.enemyConnected() != False and enemyUsername == None:
-            print("initializing enemy sprite")
-            enemyUsername = n.enemyConnected()
-            p2 = Player(50,50,255,0,0)
-            all_sprites.add(p2)
-        if n.enemyConnected() != False and enemyUsername != None and n.getEnemyPos() != None:
-            n.send(p.getPos())
-            p2.dataMove(n.getEnemyPos())
+        # if n.enemyConnected() != False and enemyUsername == None:
+        #     print("initializing enemy sprite")
+        #     enemyUsername = n.enemyConnected()
+        #     p2 = Player(50,50,255,0,0)
+        #     all_sprites.add(p2)
+        # if n.enemyConnected() != False and enemyUsername != None and n.getEnemyPos() != None:
+        #     n.send(p.getPos())
+        #     p2.dataMove(n.getEnemyPos())
 
 
         renderBattle(win,all_sprites) #RENDER
