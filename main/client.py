@@ -213,6 +213,9 @@ class Player(pygame.sprite.Sprite):
         self.jumping = False
         self.jumpcount = 10
         self.doubleJumped = False
+        self.readyForDoubleJump = False
+        self.jumpPause = -11
+        self.startingY = height -self.playerHeight/2
 
     #def draw(self,win):
     #    pygame.draw.rect(win,self.color,self.rect)
@@ -229,23 +232,41 @@ class Player(pygame.sprite.Sprite):
 
         if keys[pygame.K_UP] and self.y > self.vel + self.playerHeight/2 and self.jumping == False:
             self.jumping = True
+            self.startingY = self.y
             wait = 0
 
         # if keys[pygame.K_DOWN] and self.y < height - 100/2 - self.vel: CROUCH
         #     self.y += self.vel
 
         if self.jumping == True and wait == 1:
+            print("jumpcount",self.jumpcount)
+            print("jumpPause",self.jumpPause)
+
             if self.jumpcount >= -10: #replace with jumpcount original
-                self.y -= self.jumpcount * abs(self.jumpcount) #Quadradic formula for jump
+                self.y -= self.jumpcount * abs(self.jumpcount)/2 #Quadradic formula for jump
                 self.jumpcount -= 1
-            if self.doubleJumped == False and keys[pygame.K_UP] and self.jumpcount < 0 :
+            if not keys[pygame.K_UP]:
+                self.readyForDoubleJump = True
+            if self.doubleJumped == False and keys[pygame.K_UP] and self.readyForDoubleJump == True:
                 self.doubleJumped = True
+                self.jumpPause = self.jumpcount 
                 self.jumpcount = 10
-            if self.jumpcount == -10:
+            if self.jumpcount <= -10 and self.jumpPause >= -10:
+                if self.jumpPause > 0:
+                    self.jumpPause = -1 - self.jumpPause
+                self.y -= self.jumpPause * abs(self.jumpPause)/2 #Quadradic formula for jump
+                self.jumpPause -= 1
+            if self.jumpcount < -10 and self.jumpPause < -10:
+                if self.y != self.startingY:
+                    print("error")
+                    print(self.startingY-self.y)
+                    self.y = self.startingY
                 self.jumpcount = 10 #reset jump count
+                self.doubleJumped = False
                 self.jumping = False
-
-
+                self.readyForDoubleJump = False
+            print("jumpcount AFTER",self.jumpcount)
+            print("jumpPause AFTER",self.jumpPause)
 
         self.rect.center = (self.x, self.y)
 
@@ -349,7 +370,7 @@ def main():
     
 
     while run:
-        pygame.time.delay(30)
+        pygame.time.delay(150)
         # if n.isConnected() == False:
         #     break
 
