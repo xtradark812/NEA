@@ -7,13 +7,7 @@ import json
 import threading
 
 
-width = 1280
-height = 720
-pygame.init()
-win = pygame.display.set_mode((width,height))
-pygame.display.set_caption("Client")
 
-clientnumber = 0
 
 class Controls():
     def __init__(self):
@@ -34,15 +28,6 @@ class Network():
         self.enemyUsername = None
         self.onlineUsers = []
 
-    # def sendAndRecive(self,data):
-    #     try:
-    #         serialized_data = json.dumps(data) #serialize data
-    #         self.client.sendall(bytes(serialized_data, "utf8")) ### SENDS LOGIN DATA TO SERVER [loginRequest,username]
-    #         response = json.loads(self.client.recv(self.BUFSIZ).decode("utf8")) ### WAITS FOR DATA TO BE RETURNED
-    #         return response
-    #     except Exception as e:s
-    #         print("Invalid response from server", e)
-    #         return False
 
     def send(self,data):
         print("send:",data)
@@ -88,7 +73,7 @@ class Network():
             print("error",e)
         
 
-    def connect(self):
+    def connect(self,username):
         try:
             self.client.connect(self.addr)
             self.connected = True
@@ -97,8 +82,8 @@ class Network():
             print("Error connecting to server:",e)
             return False
 
-        givenUsername = str(input("Please enter a username:"))
-        self.username = self.login(givenUsername)
+        
+        self.username = self.login(username)
         if self.username == None:
             return False
         elif self.username != None:
@@ -127,9 +112,6 @@ class Network():
             self.send({"requestType":"startBattle","enemyU":enemyU})
                     
             
-    #def getPos(self):
-     #   return self.pos
-    
     def login(self,username): #function pulled from previous messaging project
 
         loginReq = {"requestType":"loginRequest","username":username}
@@ -192,14 +174,15 @@ class Network():
         
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self,x,y,r,g,b):
+    def __init__(self,x,y,r,g,b,game):
         self.playerWidth = 120
         self.playerHeight = 240
+        self.game = game
 
         pygame.sprite.Sprite.__init__(self) #sprite init function (required by pygame)
         
-        self.x = width/4 #need to check which side to spawn on
-        self.y = height -self.playerHeight/2 #replace 50 with height from real x
+        self.x = self.game.width/4 #need to check which side to spawn on
+        self.y = self.game.height -self.playerHeight/2 #replace 50 with height from real x
 
         self.color = r,g,b
 
@@ -224,7 +207,7 @@ class Player(pygame.sprite.Sprite):
         self.jumping = False
         self.doubleJumps = 0
         self.readyForDoubleJump = False
-        self.startingY = height -self.playerHeight/2
+        self.startingY = game.height -self.playerHeight/2
         self.changeList = []
 
     #def draw(self,win):
@@ -234,13 +217,13 @@ class Player(pygame.sprite.Sprite):
         wait = 1
         keys = pygame.key.get_pressed()
 
-        if keys[controls.left] and self.x > self.vel + self.playerWidth/2:
+        if keys[self.game.controls.left] and self.x > self.vel + self.playerWidth/2:
             self.x -= self.vel
 
-        if keys[controls.right] and self.x < width - self.vel - self.playerWidth/2 : #replace width
+        if keys[self.game.controls.right] and self.x < g.width - self.vel - self.playerWidth/2 : #replace width
             self.x += self.vel
 
-        if keys[controls.jump] and self.y > self.vel + self.playerHeight/2 and self.jumping == False:
+        if keys[self.game.controls.jump] and self.y > self.vel + self.playerHeight/2 and self.jumping == False:
             self.jumping = True
             self.startingY = self.y
             wait = 0
@@ -315,123 +298,163 @@ class Button:
         else:
             return False     
 
+class InputBox:
 
-def renderBattle(win,all_sprites):
-    all_sprites.update() #update sprites
-    pygame.display.update()
-    win.fill((255,255,255))
-    all_sprites.draw(win) #DRAW SPRITES
+    def __init__(self, x, y, w, h, text=''):
+        self.COLOR_INACTIVE = pygame.Color('lightskyblue3')
+        self.COLOR_ACTIVE = pygame.Color('dodgerblue2')
+        self.rect = pygame.Rect(x, y, w, h)
+        self.color = self.COLOR_INACTIVE
+        self.text = text
+        self.font = font = pygame.font.Font('freesansbold.ttf',115)
+        self.txt_surface = self.font.render(text, True, self.color)
+        self.active = False
+
+    def handle_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            # If the user clicked on the input_box rect.
+            if self.rect.collidepoint(event.pos):
+                # Toggle the active variable.
+                self.active = not self.active
+            else:
+                self.active = False
+            # Change the current color of the input box.
+            self.color = self.COLOR_ACTIVE if self.active else self.COLOR_INACTIVE
+        if event.type == pygame.KEYDOWN:
+            if self.active:
+                if event.key == pygame.K_RETURN:
+                    print(self.text)
+                    self.text = ''
+                elif event.key == pygame.K_BACKSPACE:
+                    self.text = self.text[:-1]
+                else:
+                    self.text += event.unicode
+                # Re-render the text.
+                self.txt_surface = self.font.render(self.text, True, self.color)
+
+    def update(self):
+        # Resize the box if the text is too long.
+        width = max(200, self.txt_surface.get_width()+10)
+        self.rect.w = width
+
+    def draw(self, screen):
+        # Blit the text.
+        screen.blit(self.txt_surface, (self.rect.x+5, self.rect.y+5))
+        # Blit the rect.
+        pygame.draw.rect(screen, self.color, self.rect, 2)
 
 
 
-def loadNetwork():
-    n = Network()
-    n.connect()
-    thread = threading.Thread(target=n.main)
-    thread.start()
-    return n
 
-def mainMenu():
-    buttons = [Button("Start",width/2,height/2,(0,255,0))]
-    menuScreen = True
-    while menuScreen:
+class Game():
+    def __init__(self):
+        pygame.init()
+        self.controls = Controls()
+
+        self.width = 1280
+        self.height = 720
         
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                run = False
-                pygame.quit()
-                sys.exit()
-                break
-            
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                pos = pygame.mouse.get_pos()
-                for button in buttons:
-                    if button.click(pos):
-                        main()
+        self.win = pygame.display.set_mode((self.width,self.height))
+        pygame.display.set_caption("Client")
+
+    
+    def loadNetwork(self,username):
+        self.n = Network()
+        self.n.connect(username)
+        thread = threading.Thread(target=self.n.main)
+        thread.start()
+
+    def renderBattle(self,win,all_sprites):
+        all_sprites.update() #update sprites
+        pygame.display.update()
+        win.fill((255,255,255))
+        all_sprites.draw(win) #DRAW SPRITES
+    
+
+
+
+    def mainMenu(self):
+        buttons = [Button("Start",self.width/2,self.height/2,(0,255,0))]
+        inputBoxes = [InputBox(100, 100, 140, 32)]
+        menuScreen = True
+        
+        while menuScreen:
+        
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    menuScreen = self.exit()
+                    break
+                
+                for box in inputBoxes:
+                    box.handle_event(event)
+
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    pos = pygame.mouse.get_pos()
+                    for button in buttons:
+                        if button.click(pos):
+                            print(inputBoxes[0].text)
+                            self.loadNetwork(inputBoxes[0].text)
+                            
+                            self.battle()
                         #START GAME
         
+            #Draw Menu screen
+            self.win.fill((255,255,255))
+            font = pygame.font.Font('freesansbold.ttf',115)
+            textSurface = font.render('project-steel', True, (0,0,0))
+            TextRect = textSurface.get_rect()
+            TextRect.center = ((self.width/2),(self.height/6))
+            self.win.blit(textSurface, TextRect)
+
+            #Update input boxes
+            for box in inputBoxes:
+                box.update()
+
+            #Draw Buttons
+            for button in buttons:
+                button.draw(self.win)
+
+            #draw input boxes
+            for box in inputBoxes:
+                box.draw(self.win)
+                
+            #Update Display
+            pygame.display.update()
         
-        win.fill((255,255,255))
-        font = pygame.font.Font('freesansbold.ttf',115)
-        textSurface = font.render('project-steel', True, (0,0,0))
-        TextRect = textSurface.get_rect()
-        TextRect.center = ((width/2),(height/6))
-        win.blit(textSurface, TextRect)
-
-        for button in buttons:
-            button.draw(win)
-
-        pygame.display.update()
-        
 
 
-def main():
+    def battle(self):
     
-    run = True
-    
-    elapsedTime = 0 #variable for counting ticks since init
-    clock = pygame.time.Clock() #keep track of ticks
+        run = True
 
-    enemyUsername = None
+        all_sprites = pygame.sprite.Group()
 
-    all_sprites = pygame.sprite.Group()
-    p = Player(50,50,0,255,0)
-    all_sprites.add(p)
+        p = Player(50,50,0,255,0,self)
+        all_sprites.add(p)
     
 
-    while run:
-        pygame.time.delay(30)
-        # if n.isConnected() == False:
-        #     break
+        while run:
+            pygame.time.delay(30)
 
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                run = False
-                pygame.quit()
-                sys.exit()
-                break
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    run = self.exit()
+                    break
 
+    
+            p.move() #checks for key prsses, and moves charachter
+
+            self.renderBattle(self.win,all_sprites) #RENDER
         
-                    
-        
-
-        # n.sendPos(p.getPos())
-        dt = clock.tick() #the following method returns the time since its last call in milliseconds
-        elapsedTime += dt
-        
-        
-        p.move() #checks for key prsses, and moves charachter
-        
+    def exit(self):
+        pygame.quit()
+        sys.exit()
+        #disable network
+        #save anything?
+        return False
 
 
-        
-
-        # if n.enemyConnected() != False and enemyUsername == None:
-        #     print("initializing enemy sprite")
-        #     enemyUsername = n.enemyConnected()
-        #     p2 = Player(50,50,255,0,0)
-        #     all_sprites.add(p2)
-        # if n.enemyConnected() != False and enemyUsername != None and n.getEnemyPos() != None:
-        #     n.send(p.getPos())
-        #     p2.dataMove(n.getEnemyPos())
-
-
-        renderBattle(win,all_sprites) #RENDER
-        
-
-        # if n.checkEnemyConnected() != False and p2Connected == False:
-        #     enemyUsername = n.checkEnemyConnected()
-        #     p2 = Player(50,50,100,100,(0,0,255))
-        #     p2Connected = True
-        
-        # if p2Connected == True:
-        #    p2.move(n.getEnemyPos())
-        
-        # redrawWindow(win,p)
-controls = Controls()
-mainMenu()
-
-
-
+g = Game()
+g.mainMenu()
 
 
