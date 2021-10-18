@@ -15,7 +15,13 @@ pygame.display.set_caption("Client")
 
 clientnumber = 0
 
-
+class Controls():
+    def __init__(self):
+        self.jump = pygame.K_UP
+        self.crouch = pygame.K_DOWN
+        self.left = pygame.K_LEFT
+        self.right = pygame.K_RIGHT
+        
 
 class Network():
     def __init__(self):
@@ -211,10 +217,12 @@ class Player(pygame.sprite.Sprite):
 
         self.jumpcount = 10
         self.doubleJumpCount = 10
-        #states
+        self.doubleJumpsAllowed = 3
+        self.jumpsize = 4 # THE BIGGER THE VALUE THE SMALLER THE JUMP
+
+        #DO NOT CHANGE 
         self.jumping = False
-        
-        self.doubleJumped = False
+        self.doubleJumps = 0
         self.readyForDoubleJump = False
         self.startingY = height -self.playerHeight/2
         self.changeList = []
@@ -226,13 +234,13 @@ class Player(pygame.sprite.Sprite):
         wait = 1
         keys = pygame.key.get_pressed()
 
-        if keys[pygame.K_LEFT] and self.x > self.vel + self.playerWidth/2:
+        if keys[controls.left] and self.x > self.vel + self.playerWidth/2:
             self.x -= self.vel
 
-        if keys[pygame.K_RIGHT] and self.x < width - self.vel - self.playerWidth/2 : #replace width
+        if keys[controls.right] and self.x < width - self.vel - self.playerWidth/2 : #replace width
             self.x += self.vel
 
-        if keys[pygame.K_UP] and self.y > self.vel + self.playerHeight/2 and self.jumping == False:
+        if keys[controls.jump] and self.y > self.vel + self.playerHeight/2 and self.jumping == False:
             self.jumping = True
             self.startingY = self.y
             wait = 0
@@ -243,16 +251,17 @@ class Player(pygame.sprite.Sprite):
         if self.jumping == True and wait == 1:
 
             if self.jumpcount > 0: #replace with jumpcount original
-                change = self.jumpcount * self.jumpcount/2 #Quadradic formula for jump
+                change = self.jumpcount * self.jumpcount/self.jumpsize #Quadradic formula for jump
                 self.y -= change
                 self.changeList.append(change)
                 self.jumpcount -= 1
 
             if not keys[pygame.K_UP]:
                 self.readyForDoubleJump = True
-            if self.doubleJumped == False and keys[pygame.K_UP] and self.readyForDoubleJump == True:
-                self.doubleJumped = True
+            if self.doubleJumps < self.doubleJumpsAllowed and keys[pygame.K_UP] and self.readyForDoubleJump == True:
+                self.doubleJumps += 1
                 self.jumpcount = self.doubleJumpCount
+                self.readyForDoubleJump = False
 
             
             if self.jumpcount == 0 and self.y != self.startingY: #player goes back to the ground
@@ -264,7 +273,7 @@ class Player(pygame.sprite.Sprite):
                     print(self.startingY-self.y)
                     self.y = self.startingY
                 self.jumpcount = 10 #reset jump count
-                self.doubleJumped = False
+                self.doubleJumps = 0
                 self.jumping = False
                 self.readyForDoubleJump = False
 
@@ -419,7 +428,7 @@ def main():
         #    p2.move(n.getEnemyPos())
         
         # redrawWindow(win,p)
-
+controls = Controls()
 mainMenu()
 
 
