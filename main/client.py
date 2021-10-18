@@ -209,13 +209,15 @@ class Player(pygame.sprite.Sprite):
 
         self.rect.center = (self.x, self.y)
 
+        self.jumpcount = 10
+        self.doubleJumpCount = 10
         #states
         self.jumping = False
-        self.jumpcount = 10
+        
         self.doubleJumped = False
         self.readyForDoubleJump = False
-        self.jumpPause = -11
         self.startingY = height -self.playerHeight/2
+        self.changeList = []
 
     #def draw(self,win):
     #    pygame.draw.rect(win,self.color,self.rect)
@@ -239,24 +241,24 @@ class Player(pygame.sprite.Sprite):
         #     self.y += self.vel
 
         if self.jumping == True and wait == 1:
-            print("jumpcount",self.jumpcount)
-            print("jumpPause",self.jumpPause)
 
-            if self.jumpcount >= -10: #replace with jumpcount original
-                self.y -= self.jumpcount * abs(self.jumpcount)/2 #Quadradic formula for jump
+            if self.jumpcount > 0: #replace with jumpcount original
+                change = self.jumpcount * self.jumpcount/2 #Quadradic formula for jump
+                self.y -= change
+                self.changeList.append(change)
                 self.jumpcount -= 1
+
             if not keys[pygame.K_UP]:
                 self.readyForDoubleJump = True
             if self.doubleJumped == False and keys[pygame.K_UP] and self.readyForDoubleJump == True:
                 self.doubleJumped = True
-                self.jumpPause = self.jumpcount 
-                self.jumpcount = 10
-            if self.jumpcount <= -10 and self.jumpPause >= -10:
-                if self.jumpPause > 0:
-                    self.jumpPause = -1 - self.jumpPause
-                self.y -= self.jumpPause * abs(self.jumpPause)/2 #Quadradic formula for jump
-                self.jumpPause -= 1
-            if self.jumpcount < -10 and self.jumpPause < -10:
+                self.jumpcount = self.doubleJumpCount
+
+            
+            if self.jumpcount == 0 and self.y != self.startingY: #player goes back to the ground
+                self.y += self.changeList.pop(self.changeList.index(min(self.changeList)))
+
+            if self.jumpcount == 0 and not self.changeList: #once player is on the ground
                 if self.y != self.startingY:
                     print("error")
                     print(self.startingY-self.y)
@@ -265,8 +267,7 @@ class Player(pygame.sprite.Sprite):
                 self.doubleJumped = False
                 self.jumping = False
                 self.readyForDoubleJump = False
-            print("jumpcount AFTER",self.jumpcount)
-            print("jumpPause AFTER",self.jumpPause)
+
 
         self.rect.center = (self.x, self.y)
 
@@ -370,7 +371,7 @@ def main():
     
 
     while run:
-        pygame.time.delay(150)
+        pygame.time.delay(30)
         # if n.isConnected() == False:
         #     break
 
