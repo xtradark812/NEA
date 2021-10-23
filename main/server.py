@@ -47,7 +47,7 @@ class Client:
         #self.sendThread = threading.Thread(target=self.send)
 
     def send(self,data):
-        print("send:",data)
+        # print("send:",data)
         serialized_data = json.dumps(data) #serialize data
         self.user.sendall(bytes(serialized_data, "utf8")) ### SENDS LOGIN DATA TO SERVER [loginRequest,username]
 
@@ -83,7 +83,7 @@ class Client:
                     return tryAgain
                 
                 response, index = decoder.raw_decode(finalData) ### WAITS FOR DATA TO BE RETURNED
-                print("response",response)
+                # print("response",response)
                 return response
             
         except socket.timeout:

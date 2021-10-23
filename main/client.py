@@ -1,4 +1,5 @@
 from json.decoder import JSONDecoder
+from typing import Counter
 
 import pygame
 import sys
@@ -26,11 +27,12 @@ class Network():
         self.BUFSIZ = 1024
         self.connected = False
         self.enemyUsername = None
+        self.enemyPos = None
         self.onlineUsers = []
 
 
     def send(self,data):
-        print("send:",data)
+        # print("send:",data)
         serialized_data = json.dumps(data) #serialize data
         self.client.sendall(bytes(serialized_data, "utf8")) ### SENDS DATA TO SERVER 
 
@@ -66,7 +68,7 @@ class Network():
                 
 
                 response, index = decoder.raw_decode(finalData) ### WAITS FOR DATA TO BE RETURNED
-                print("response:",response)
+                # print("response:",response)
                 return response
 
         except Exception as e:
@@ -94,7 +96,7 @@ class Network():
         if self.connected == True:
             self.enemyUsername = None
             self.enemyPos = None
-        while True:
+        while self.connected:
             response = self.recive()
             if response["requestType"]=="battleReq":
                 self.waitForBattle(response)
@@ -105,11 +107,11 @@ class Network():
         self.send({"requestType":"getOnlineUsers"})
         while bool(self.onlineUsers) == False:
             pass
-        print(self.onlineUsers)
-        enemyU = input("Please pick a username: ")
-        if enemyU in self.onlineUsers:
-            print("sending battle request")
-            self.send({"requestType":"startBattle","enemyU":enemyU})
+        #TEMPORARILY JUST PICKS ANY PERSON
+        for enemyU in self.onlineUsers:
+            if enemyU != self.username:
+                print("sending battle request")
+                self.send({"requestType":"startBattle","enemyU":enemyU})
                     
             
     def login(self,username): #function pulled from previous messaging project
@@ -127,10 +129,7 @@ class Network():
             return None
 
     def enemyConnected(self):
-        if self.enemyUsername != None:
-            return self.enemyUsername
-        else:
-            return False
+        return self.enemyUsername
 
     
     def waitForBattle(self,response):
@@ -161,10 +160,7 @@ class Network():
         #this waits for an enemy to connect, and once it connects it will constantly receive pos
     
     def isConnected(self):
-        if self.connected == True:
-            return True
-        else:
-            return False
+        return self.connected
     
 
 
@@ -209,6 +205,7 @@ class Player(pygame.sprite.Sprite):
         self.readyForDoubleJump = False
         self.startingY = game.height -self.playerHeight/2
         self.changeList = []
+        self.counter = 0
 
     #def draw(self,win):
     #    pygame.draw.rect(win,self.color,self.rect)
@@ -232,8 +229,8 @@ class Player(pygame.sprite.Sprite):
         #     self.y += self.vel
 
         if self.jumping == True and wait == 1:
-
-            if self.jumpcount > 0: #replace with jumpcount original
+            self.counter +=1
+            if self.jumpcount > 0 and self.counter%2 == 0: #replace with jumpcount original
                 change = self.jumpcount * self.jumpcount/self.jumpsize #Quadradic formula for jump
                 self.y -= change
                 self.changeList.append(change)
@@ -247,7 +244,7 @@ class Player(pygame.sprite.Sprite):
                 self.readyForDoubleJump = False
 
             
-            if self.jumpcount == 0 and self.y != self.startingY: #player goes back to the ground
+            if self.jumpcount == 0 and self.y != self.startingY and self.counter%2 == 0: #player goes back to the ground
                 self.y += self.changeList.pop(self.changeList.index(min(self.changeList)))
 
             if self.jumpcount == 0 and not self.changeList: #once player is on the ground
@@ -257,8 +254,10 @@ class Player(pygame.sprite.Sprite):
                     self.y = self.startingY
                 self.jumpcount = 10 #reset jump count
                 self.doubleJumps = 0
-                self.jumping = False
+                self.counter = 0
                 self.readyForDoubleJump = False
+                self.jumping = False
+                
 
 
         self.rect.center = (self.x, self.y)
@@ -350,19 +349,23 @@ class Game():
     def __init__(self):
         pygame.init()
         self.controls = Controls()
-
+        self.n = Network()
         self.width = 1280
         self.height = 720
         
         self.win = pygame.display.set_mode((self.width,self.height))
         pygame.display.set_caption("Client")
+        self.connected = False
 
     
     def loadNetwork(self,username):
-        self.n = Network()
-        self.n.connect(username)
-        thread = threading.Thread(target=self.n.main)
-        thread.start()
+        connect = self.n.connect(username)
+        if connect:
+            thread = threading.Thread(target=self.n.main)
+            thread.start()
+            return True
+        else:
+            return False
 
     def renderBattle(self,win,all_sprites):
         all_sprites.update() #update sprites
@@ -393,10 +396,13 @@ class Game():
                     for button in buttons:
                         if button.click(pos):
                             print(inputBoxes[0].text)
-                            self.loadNetwork(inputBoxes[0].text)
-                            
-                            self.battle()
-                        #START GAME
+                            self.connected = self.loadNetwork(inputBoxes[0].text)
+                            if self.connected:
+                                self.n.startBattle()
+    
+            if self.n.enemyConnected() != None and self.connected and self.n.getEnemyPos() != None:
+                self.battle()
+                #START GAME
         
             #Draw Menu screen
             self.win.fill((255,255,255))
@@ -430,19 +436,29 @@ class Game():
         all_sprites = pygame.sprite.Group()
 
         p = Player(50,50,0,255,0,self)
+        e = Player(50,50,255,0,0,self)
         all_sprites.add(p)
-    
+        all_sprites.add(e)
+        
 
-        while run:
-            pygame.time.delay(30)
-
+        while run and self.connected:
+            # pygame.time.delay(30)
+            self.connected = self.n.isConnected()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     run = self.exit()
                     break
+            
 
-    
+            
             p.move() #checks for key prsses, and moves charachter
+            try:
+                self.n.send(p.getPos())
+                enemyPos = self.n.getEnemyPos()
+                e.dataMove(enemyPos)
+            except Exception as exc:
+                print(exc)
+
 
             self.renderBattle(self.win,all_sprites) #RENDER
         
