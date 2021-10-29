@@ -177,29 +177,29 @@ class Player(pygame.sprite.Sprite):
 
         pygame.sprite.Sprite.__init__(self) #sprite init function (required by pygame)
         
-        self.x = self.game.width/4 #need to check which side to spawn on
-        self.y = self.game.height -self.playerHeight/2 #replace 50 with height from real x
+        self.x = self.game.width/4 #TODO need to check which side to spawn on
+        self.y = self.game.height -self.playerHeight/2 
 
         self.color = r,g,b
 
         self.vel = 10
 
+        self.hp = 100
 
         
-
+        #CREATING CHARACHTER
         self.image = pygame.Surface((self.playerWidth, self.playerHeight)) #temporarly a square
         self.image.fill(self.color)  #temporarily a square
-
         self.rect = self.image.get_rect() #will  define players hitbox as size of the image
-
         self.rect.center = (self.x, self.y)
 
+        #FOR JUMPING
         self.jumpcount = 10
         self.doubleJumpCount = 10
         self.doubleJumpsAllowed = 3
         self.jumpsize = 4 # THE BIGGER THE VALUE THE SMALLER THE JUMP
 
-        #DO NOT CHANGE 
+        #CONSTANTS (do not change)
         self.jumping = False
         self.doubleJumps = 0
         self.readyForDoubleJump = False
@@ -209,7 +209,13 @@ class Player(pygame.sprite.Sprite):
 
     #def draw(self,win):
     #    pygame.draw.rect(win,self.color,self.rect)
+    def reudeHp(self, ammount):
+        self.hp -= ammount
     
+    def resetHp(self):
+        self.hp = 100
+
+
     def move(self):
         wait = 1
         keys = pygame.key.get_pressed()
@@ -401,8 +407,7 @@ class Game():
                                 self.n.startBattle()
     
             if self.n.enemyConnected() != None and self.connected and self.n.getEnemyPos() != None:
-                self.battle()
-                #START GAME
+                self.battle() #START GAME
         
             #Draw Menu screen
             self.win.fill((255,255,255))
@@ -430,33 +435,39 @@ class Game():
 
 
     def battle(self):
+
     
         run = True
 
         all_sprites = pygame.sprite.Group()
 
         p = Player(50,50,0,255,0,self)
-        e = Player(50,50,255,0,0,self)
+        e = Player(50,50,255,0,0,self) #TODO: need to pick which side each player spawns on
         all_sprites.add(p)
         all_sprites.add(e)
         
 
         while run and self.connected:
-            # pygame.time.delay(30)
+            pygame.time.delay(20)
             self.connected = self.n.isConnected()
+
             for event in pygame.event.get():
-                if event.type == pygame.QUIT:
+                if event.type == pygame.QUIT or self.connected == False:
                     run = self.exit()
+                    #return back to menu screen?
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    pos = pygame.mouse.get_pos()
                     break
             
 
             
             p.move() #checks for key prsses, and moves charachter
             try:
-                self.n.send(p.getPos())
+                self.n.send(p.getPos()) #TODO add other data to this (using pos variable)
                 enemyPos = self.n.getEnemyPos()
                 e.dataMove(enemyPos)
             except Exception as exc:
+                #TODO check when this happens
                 print(exc)
 
 
@@ -465,8 +476,8 @@ class Game():
     def exit(self):
         pygame.quit()
         sys.exit()
-        #disable network
-        #save anything?
+        #TODO disable network
+        #TODO save anything?
         return False
 
 
