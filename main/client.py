@@ -162,12 +162,7 @@ class Network():
     def isConnected(self):
         return self.connected
     
-
-
-
-
-
-        
+     
 
 class Player(pygame.sprite.Sprite):
     def __init__(self,x,y,r,g,b,game):
@@ -209,8 +204,10 @@ class Player(pygame.sprite.Sprite):
 
     #def draw(self,win):
     #    pygame.draw.rect(win,self.color,self.rect)
-    def reudeHp(self, ammount):
+
+    def reudceHp(self, ammount):
         self.hp -= ammount
+        print("i took",ammount,"damage") #for debugging
     
     def resetHp(self):
         self.hp = 100
@@ -270,7 +267,10 @@ class Player(pygame.sprite.Sprite):
 
 
     
-    def dataMove(self,data):
+    def dataUpdate(self,data):
+        if "reduceHp" in data:
+            self.reudceHp(data["reduceHp"])
+            
         self.x = data["x"]
         self.y = data["y"]
         self.rect.center = (self.x, self.y)
@@ -445,7 +445,8 @@ class Game():
         e = Player(50,50,255,0,0,self) #TODO: need to pick which side each player spawns on
         all_sprites.add(p)
         all_sprites.add(e)
-        
+
+        pos = None
 
         while run and self.connected:
             pygame.time.delay(20)
@@ -455,6 +456,7 @@ class Game():
                 if event.type == pygame.QUIT or self.connected == False:
                     run = self.exit()
                     #return back to menu screen?
+                
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     pos = pygame.mouse.get_pos()
                     break
@@ -462,10 +464,18 @@ class Game():
 
             
             p.move() #checks for key prsses, and moves charachter
-            try:
-                self.n.send(p.getPos()) #TODO add other data to this (using pos variable)
-                enemyPos = self.n.getEnemyPos()
-                e.dataMove(enemyPos)
+
+           
+            try:  #network things have exception handling
+                info = p.getPos()
+                
+                if pos != None:
+                    info["clickPos"] = pos
+                    pos = None
+                
+                self.n.send(info)
+                enemyData = self.n.getEnemyPos()
+                e.dataUpdate(enemyData)
             except Exception as exc:
                 #TODO check when this happens
                 print(exc)

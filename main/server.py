@@ -41,6 +41,7 @@ class Client:
 
         self.x = 0
         self.y = 0 
+        self.click = None
         mainThread = threading.Thread(target=self.main)
         mainThread.start()
 
@@ -132,10 +133,12 @@ class Client:
                 if data["requestType"] == "posData":
                     self.x = data["x"]
                     self.y = data["y"]
+                    if "clickPos" in data:
+                        self.click = data["clickPos"]
 
     def main(self):
         print("client initialised. beginning main loop",self.addr)
-        if self.loggedIn != True:
+        if self.loggedIn != True: #TODO while loop?
             self.login()
         if self.loggedIn == True:
             requestHandlerThread = threading.Thread(target=self.requestHandler)
@@ -210,7 +213,12 @@ class Client:
             
  
     def getPos(self):
-        return {"requestType":"posData","x":self.x,"y":self.y}
+        if self.click != None:
+            data = {"requestType":"posData","x":self.x,"y":self.y,"clickPos":self.click}
+            self.click = None
+            return data
+        else:
+            return {"requestType":"posData","x":self.x,"y":self.y}
 
     def getUsername(self):
         return self.username
@@ -226,6 +234,10 @@ class Battle:
         
         self.client1 = client1
         self.client2 = client2
+
+        self.width = 120
+        self.height = 240
+
         battlethread = threading.Thread(target=self.initBattle)
         battlethread.start()
 
@@ -243,11 +255,28 @@ class Battle:
 
     def sendPos(self,p1,p2):
         while p1.isconnected() == True and p2.isconnected() == True:
-            data1 = (p1.getPos())
+            data1 = p1.getPos()
+            data2 = p2.getPos()
+            
+            if "clickPos" in data1:
+                data2["reduceHp"] = self.checkClick(data1,data2)
+            elif "clickPos" in data2:
+                data1["reduceHp"] = self.checkClick(data2,data1)
+                
+
             p2.send(data1)
-            data2 = (p2.getPos())
             p1.send(data2)
 
+    def checkClick(self,data1,data2):
+        pos = data1["clickPos"]
+        x1 = pos[0]
+        y1 = pos[1]
+        x = data2["x"]
+        y = data2["y"]
+        if  x <= x1 <= x + self.width and y <= y1 <= y + self.height:
+            return 10
+        else:
+            return 0
 
         
     
