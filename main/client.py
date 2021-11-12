@@ -30,6 +30,8 @@ class Network():
         self.enemyPos = None
         self.onlineUsers = []
 
+        self.reduceHp = None
+
 
     def send(self,data):
         # print("send:",data)
@@ -143,7 +145,12 @@ class Network():
                     data = self.recive()
                     if data != None:
                         if data["requestType"] == "posData":
-                            self.enemyPos = data #check if data being recived is pos data
+
+                            if "reduceHp" in data: #added here just in case it gets lost
+                                self.reduceHp = data["reduceHp"] #TODO if takes multiple damage needs to add it up
+                                
+
+                            self.enemyPos = data #TODO seperate pos data from other data and fix variable names
                         if data["requestType"] == "opponentDisconnect":
                             self.enemyUsername = None
                             break
@@ -154,6 +161,10 @@ class Network():
             
 
     def getEnemyPos(self):
+        if self.reduceHp != None:
+            self.enemyPos["reduceHp"] = self.reduceHp
+            self.reduceHp = None
+        
         return self.enemyPos
             
 
@@ -198,7 +209,7 @@ class Player(pygame.sprite.Sprite):
         self.jumping = False
         self.doubleJumps = 0
         self.readyForDoubleJump = False
-        self.startingY = game.height -self.playerHeight/2
+        self.startingY = game.height -self.playerHeight/2 
         self.changeList = []
         self.counter = 0
 
@@ -380,7 +391,7 @@ class Game():
         all_sprites.draw(win) #DRAW SPRITES
     
 
-
+    #TODO load textures method
 
     def mainMenu(self):
         buttons = [Button("Start",self.width/2,self.height/2,(0,255,0))]
@@ -446,9 +457,10 @@ class Game():
         all_sprites.add(p)
         all_sprites.add(e)
 
-        pos = None
+        
 
         while run and self.connected:
+            pos = None
             pygame.time.delay(20)
             self.connected = self.n.isConnected()
 
@@ -459,7 +471,7 @@ class Game():
                 
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     pos = pygame.mouse.get_pos()
-                    break
+                    
             
 
             
@@ -471,7 +483,7 @@ class Game():
                 
                 if pos != None:
                     info["clickPos"] = pos
-                    pos = None
+                    print(pos)
                 
                 self.n.send(info)
                 enemyData = self.n.getEnemyPos()

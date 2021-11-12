@@ -269,11 +269,13 @@ class Battle:
 
     def checkClick(self,data1,data2):
         pos = data1["clickPos"]
+        print(pos)
         x1 = pos[0]
         y1 = pos[1]
         x = data2["x"]
         y = data2["y"]
-        if  x <= x1 <= x + self.width and y <= y1 <= y + self.height:
+        if  x-(self.width/2) <= x1 <= x + (self.width/2) and y-(self.height/2) <= y1 <= y + (self.height/2):
+            print("hit!")
             return 10
         else:
             return 0
