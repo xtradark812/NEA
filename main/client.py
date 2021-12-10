@@ -64,6 +64,7 @@ class Network():
                         finalData = newData[:i+1]
                         string = True
                     i+=1
+                    #TODO ccheck to see if theres another string attached to it, and if there is, return that also.
                 if string == False:
                     tryAgain = self.recive()
                     return tryAgain
@@ -108,9 +109,9 @@ class Network():
     def startBattle(self):
         self.send({"requestType":"getOnlineUsers"})
         while bool(self.onlineUsers) == False:
-            pass
+            pass #Waits for online users list to return
         #TEMPORARILY JUST PICKS ANY PERSON
-        for enemyU in self.onlineUsers:
+        for enemyU in self.onlineUsers: #TODO add a way to pick who to play with (send battle request outside of network object? )
             if enemyU != self.username:
                 print("sending battle request")
                 self.send({"requestType":"startBattle","enemyU":enemyU})
@@ -130,7 +131,7 @@ class Network():
         else:
             return None
 
-    def enemyConnected(self):
+    def enemyConnected(self): #maybe TODO, better check to see if user is actually connected
         return self.enemyUsername
 
     
@@ -195,7 +196,7 @@ class Player(pygame.sprite.Sprite):
         
         #CREATING CHARACHTER
         self.image = pygame.Surface((self.playerWidth, self.playerHeight)) #temporarly a square
-        self.image.fill(self.color)  #temporarily a square
+        self.image.fill(self.color)  #temporarily a square TODO make it textured properly
         self.rect = self.image.get_rect() #will  define players hitbox as size of the image
         self.rect.center = (self.x, self.y)
 
@@ -231,7 +232,7 @@ class Player(pygame.sprite.Sprite):
         if keys[self.game.controls.left] and self.x > self.vel + self.playerWidth/2:
             self.x -= self.vel
 
-        if keys[self.game.controls.right] and self.x < g.width - self.vel - self.playerWidth/2 : #replace width
+        if keys[self.game.controls.right] and self.x < self.game.width - self.vel - self.playerWidth/2 : #replace width
             self.x += self.vel
 
         if keys[self.game.controls.jump] and self.y > self.vel + self.playerHeight/2 and self.jumping == False:
@@ -374,7 +375,13 @@ class Game():
         pygame.display.set_caption("Client")
         self.connected = False
 
-    
+
+        self.play()
+
+
+    def play(self):
+        self.mainMenu()
+        
     def loadNetwork(self,username):
         connect = self.n.connect(username)
         if connect:
@@ -383,6 +390,12 @@ class Game():
             return True
         else:
             return False
+
+    def networkLoop(self):
+        #TODO
+        #first checks if there are any items in buffer waiting to be sent
+        #sends packets and then waits for a response (each packet has a unique ID and id is confirmed to make sure packet isnt lost)
+        pass
 
     def renderBattle(self,win,all_sprites):
         all_sprites.update() #update sprites
@@ -485,7 +498,7 @@ class Game():
                     info["clickPos"] = pos
                     print(pos)
                 
-                self.n.send(info)
+                self.n.send(info) #TODO instead of sending constantly, send once and then wait for response then send again. sendng and reciving should be outside of game loop.
                 enemyData = self.n.getEnemyPos()
                 e.dataUpdate(enemyData)
             except Exception as exc:
@@ -504,6 +517,6 @@ class Game():
 
 
 g = Game()
-g.mainMenu()
+
 
 

@@ -96,7 +96,7 @@ class Client:
     def requestHandler(self):
         while self.pendingBattle == False: #if there is nothing going on, wait for a request
             self.user.settimeout(1) 
-            data = self.recive()
+            data = self.recive() 
 
             if data["requestType"] == "startBattle":
                 opponentU = data["enemyU"]
