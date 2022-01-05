@@ -1,13 +1,13 @@
-from json.decoder import JSONDecoder
 from typing import Counter
 
 import pygame
 import sys
-import socket
-import json
+
 import threading
 
-
+from ui import Button 
+from ui import InputBox
+from client_network import Network
 
 
 class Controls():
@@ -16,164 +16,13 @@ class Controls():
         self.crouch = pygame.K_DOWN
         self.left = pygame.K_LEFT
         self.right = pygame.K_RIGHT
-        
 
-class Network():
-    def __init__(self):
-        self.client = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-        self.server = "127.0.0.1"
-        self.port = 5555
-        self.addr = (self.server,self.port)
-        self.BUFSIZ = 1024
-        self.connected = False
-        self.enemyUsername = None
-        self.enemyPos = None
-        self.onlineUsers = []
+    def change(): #TODO change controls 
+        pass
 
-        self.reduceHp = None
+    def loadSettings():
+        pass #TODO load settings saved?    
 
-
-    def send(self,data):
-        # print("send:",data)
-        serialized_data = json.dumps(data) #serialize data
-        self.client.sendall(bytes(serialized_data, "utf8")) ### SENDS DATA TO SERVER 
-
-
-    def recive(self):
-        decoder = JSONDecoder()
-        try:
-            data = self.client.recv(self.BUFSIZ).decode("utf8")
-            if not data:
-                self.connected = False
-                print("disconnected")
-            else:
-                #this part of the function will fix broken pakets.
-                #when the client tries to send hundreds of json objects a seccond, sometimes the objects get stuck together
-                #to solve this problem, this algorithim find exactly the data that is needed from each sent item, and strips off everything else
-                #if it does not work (e.g. the server recives incomplete data like "123}"), it will call itself and try again
-                i = 0
-                string = False
-                isdict = False
-                newData = ""
-                finalData = ""
-                for char in data:
-                    if char == "{" and string == False:
-                        newData = data[i:]
-                        isdict = True
-                    if char == "}" and isdict == True and string == False:
-                        finalData = newData[:i+1]
-                        string = True
-                    i+=1
-                    #TODO ccheck to see if theres another string attached to it, and if there is, return that also.
-                if string == False:
-                    tryAgain = self.recive()
-                    return tryAgain
-                
-
-                response, index = decoder.raw_decode(finalData) ### WAITS FOR DATA TO BE RETURNED
-                # print("response:",response)
-                return response
-
-        except Exception as e:
-            print("error",e)
-        
-
-    def connect(self,username):
-        try:
-            self.client.connect(self.addr)
-            self.connected = True
-
-        except Exception as e:
-            print("Error connecting to server:",e)
-            return False
-
-        
-        self.username = self.login(username)
-        if self.username == None:
-            return False
-        elif self.username != None:
-            print("connected")
-            return True
-
-    def main(self):
-        if self.connected == True:
-            self.enemyUsername = None
-            self.enemyPos = None
-        while self.connected:
-            response = self.recive()
-            if response["requestType"]=="battleReq":
-                self.waitForBattle(response)
-            if response["requestType"] == "getOnlineUsers":
-                self.onlineUsers = response["onlineUsers"]
-    
-    def startBattle(self):
-        self.send({"requestType":"getOnlineUsers"})
-        while bool(self.onlineUsers) == False:
-            pass #Waits for online users list to return
-        #TEMPORARILY JUST PICKS ANY PERSON
-        for enemyU in self.onlineUsers: #TODO add a way to pick who to play with (send battle request outside of network object? )
-            if enemyU != self.username:
-                print("sending battle request")
-                self.send({"requestType":"startBattle","enemyU":enemyU})
-                    
-            
-    def login(self,username): #function pulled from previous messaging project
-
-        loginReq = {"requestType":"loginRequest","username":username}
-
-        self.send(loginReq)
-        response = self.recive()
-
-        if response["requestType"]=="loginRequest" and response["loginR"]==True: 
-            print("logged in as", username)
-            return username
-        
-        else:
-            return None
-
-    def enemyConnected(self): #maybe TODO, better check to see if user is actually connected
-        return self.enemyUsername
-
-    
-    def waitForBattle(self,response):
-            accept = {"requestType":"battleReq","battleAccepted":True}    
-            self.send(accept)
-            confirm = self.recive()
-            if confirm == accept:
-                print("starting a battle with", response["enemyU"])
-                self.enemyUsername = response["enemyU"]
-                while True:
-                    data = self.recive()
-                    if data != None:
-                        if data["requestType"] == "posData":
-
-                            if "reduceHp" in data: #added here just in case it gets lost
-                                self.reduceHp = data["reduceHp"] #TODO if takes multiple damage needs to add it up
-                                
-
-                            self.enemyPos = data #TODO seperate pos data from other data and fix variable names
-                        if data["requestType"] == "opponentDisconnect":
-                            self.enemyUsername = None
-                            break
-                    elif data == None:
-                        print("no data")
-
-
-            
-
-    def getEnemyPos(self):
-        if self.reduceHp != None:
-            self.enemyPos["reduceHp"] = self.reduceHp
-            self.reduceHp = None
-        
-        return self.enemyPos
-            
-
-        #this waits for an enemy to connect, and once it connects it will constantly receive pos
-    
-    def isConnected(self):
-        return self.connected
-    
      
 
 class Player(pygame.sprite.Sprite):
@@ -196,7 +45,7 @@ class Player(pygame.sprite.Sprite):
         
         #CREATING CHARACHTER
         self.image = pygame.Surface((self.playerWidth, self.playerHeight)) #temporarly a square
-        self.image.fill(self.color)  #temporarily a square TODO make it textured properly
+        self.image.fill(self.color)  #temporarily a square
         self.rect = self.image.get_rect() #will  define players hitbox as size of the image
         self.rect.center = (self.x, self.y)
 
@@ -232,7 +81,7 @@ class Player(pygame.sprite.Sprite):
         if keys[self.game.controls.left] and self.x > self.vel + self.playerWidth/2:
             self.x -= self.vel
 
-        if keys[self.game.controls.right] and self.x < self.game.width - self.vel - self.playerWidth/2 : #replace width
+        if keys[self.game.controls.right] and self.x < g.width - self.vel - self.playerWidth/2 : #replace width
             self.x += self.vel
 
         if keys[self.game.controls.jump] and self.y > self.vel + self.playerHeight/2 and self.jumping == False:
@@ -292,74 +141,6 @@ class Player(pygame.sprite.Sprite):
 
 
     
-class Button:
-    def __init__(self, text, x, y, color):
-        self.text = text
-        self.x = x
-        self.y = y
-        self.color = color
-        self.width = 150
-        self.height = 100
-
-    def draw(self, win):
-        pygame.draw.rect(win, self.color, (self.x, self.y, self.width, self.height))
-        font = pygame.font.SysFont("comicsans", 40)
-        text = font.render(self.text, 1, (255,255,255))
-        win.blit(text, (self.x + round(self.width/2) - round(text.get_width()/2), self.y + round(self.height/2) - round(text.get_height()/2)))
-
-    def click(self, pos):
-        x1 = pos[0]
-        y1 = pos[1]
-        if self.x <= x1 <= self.x + self.width and self.y <= y1 <= self.y + self.height:
-            return True
-        else:
-            return False     
-
-class InputBox:
-
-    def __init__(self, x, y, w, h, text=''):
-        self.COLOR_INACTIVE = pygame.Color('lightskyblue3')
-        self.COLOR_ACTIVE = pygame.Color('dodgerblue2')
-        self.rect = pygame.Rect(x, y, w, h)
-        self.color = self.COLOR_INACTIVE
-        self.text = text
-        self.font = font = pygame.font.Font('freesansbold.ttf',115)
-        self.txt_surface = self.font.render(text, True, self.color)
-        self.active = False
-
-    def handle_event(self, event):
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            # If the user clicked on the input_box rect.
-            if self.rect.collidepoint(event.pos):
-                # Toggle the active variable.
-                self.active = not self.active
-            else:
-                self.active = False
-            # Change the current color of the input box.
-            self.color = self.COLOR_ACTIVE if self.active else self.COLOR_INACTIVE
-        if event.type == pygame.KEYDOWN:
-            if self.active:
-                if event.key == pygame.K_RETURN:
-                    print(self.text)
-                    self.text = ''
-                elif event.key == pygame.K_BACKSPACE:
-                    self.text = self.text[:-1]
-                else:
-                    self.text += event.unicode
-                # Re-render the text.
-                self.txt_surface = self.font.render(self.text, True, self.color)
-
-    def update(self):
-        # Resize the box if the text is too long.
-        width = max(200, self.txt_surface.get_width()+10)
-        self.rect.w = width
-
-    def draw(self, screen):
-        # Blit the text.
-        screen.blit(self.txt_surface, (self.rect.x+5, self.rect.y+5))
-        # Blit the rect.
-        pygame.draw.rect(screen, self.color, self.rect, 2)
-
 
 
 
@@ -375,13 +156,7 @@ class Game():
         pygame.display.set_caption("Client")
         self.connected = False
 
-
-        self.play()
-
-
-    def play(self):
-        self.mainMenu()
-        
+    
     def loadNetwork(self,username):
         connect = self.n.connect(username)
         if connect:
@@ -390,12 +165,6 @@ class Game():
             return True
         else:
             return False
-
-    def networkLoop(self):
-        #TODO
-        #first checks if there are any items in buffer waiting to be sent
-        #sends packets and then waits for a response (each packet has a unique ID and id is confirmed to make sure packet isnt lost)
-        pass
 
     def renderBattle(self,win,all_sprites):
         all_sprites.update() #update sprites
@@ -406,6 +175,9 @@ class Game():
 
     #TODO load textures method
 
+    def renderUI(self):
+        pass
+    
     def mainMenu(self):
         buttons = [Button("Start",self.width/2,self.height/2,(0,255,0))]
         inputBoxes = [InputBox(100, 100, 140, 32)]
@@ -498,7 +270,7 @@ class Game():
                     info["clickPos"] = pos
                     print(pos)
                 
-                self.n.send(info) #TODO instead of sending constantly, send once and then wait for response then send again. sendng and reciving should be outside of game loop.
+                self.n.send(info)
                 enemyData = self.n.getEnemyPos()
                 e.dataUpdate(enemyData)
             except Exception as exc:
@@ -517,6 +289,6 @@ class Game():
 
 
 g = Game()
-
+g.mainMenu()
 
 

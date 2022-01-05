@@ -1,7 +1,5 @@
 #HAVE CLIENT ALWAYS RECIVE THINGS, AND ITS ABLE TO CHECK WHATS BEING RECIVED WITH START THRED
 #REDUCE THE AMMOUNT OF THREADS
-
-
 from json.decoder import JSONDecoder
 import socket
 import threading
@@ -94,61 +92,55 @@ class Client:
             return {"requestType":e}
             
     def requestHandler(self):
-        while self.pendingBattle == False: #if there is nothing going on, wait for a request
-            self.user.settimeout(1) 
-            data = self.recive() 
+        self.user.settimeout(1) 
+        data = self.recive() 
 
-            if data["requestType"] == "startBattle":
-                opponentU = data["enemyU"]
-                for client in clients:
-                    if client.getUsername() == opponentU and client.isconnected() == True and client.isLoggedIn() == True:
-                        battle = Battle(client,self)
+        if data["requestType"] == "startBattle":
+            opponentU = data["enemyU"]
+            for client in clients: #Searches list of connected clients
+                if client.getUsername() == opponentU and client.isconnected() == True and client.isLoggedIn() == True:
+                    battle = Battle(client,self) #starts battle (TODO should be a battle request )
 
-            elif data["requestType"] == "getOnlineUsers":
-                print("sending list")
-                clientList = []
-                for client in clients:
-                    if client.isconnected() == True and client.isLoggedIn() == True:
-                        clientList.append(client.getUsername())
-                self.send({"requestType":"getOnlineUsers","onlineUsers":clientList})
-                    
-    def waitForBattle(self):
-        while self.loggedIn == True: # MAIN LOOP FOR EACH CHIELT, HANDLES ALL REQUESTS 
-            battleSent = False
-            if self.pendingBattle == True and self.battleAccepted == False and battleSent == False:
-                print("preparing to send battle request")
-                battleReq = {"requestType":"battleReq","enemyU":self.enemyUsername}
-                self.send(battleReq)
-                print("sent battle request to",self.username)
-                battleSent = True
-            if battleSent == True and self.battleAccepted == False and self.pendingBattle == True:
-                response = self.recive()
-                if response["requestType"]=="battleReq" and response["battleAccepted"]==True: 
-                    print(self.getUsername(), "has accepted the battle")
-                    self.send({"requestType":"battleReq","battleAccepted":True})
-                    self.battleAccepted = True
-                    print("reciving pos data")
-            if self.battleAccepted == True:
-                data = self.recive()
-                if data["requestType"] == "posData":
-                    self.x = data["x"]
-                    self.y = data["y"]
-                    if "clickPos" in data:
-                        self.click = data["clickPos"]
+        elif data["requestType"] == "getOnlineUsers":
+            clientList = []
+            for client in clients:
+                if client.isconnected() == True and client.isLoggedIn() == True:
+                    clientList.append(client.getUsername())
+            self.send({"requestType":"getOnlineUsers","onlineUsers":clientList})
+        
+        battleSent = False
+
+        if self.pendingBattle == True and self.battleAccepted == False and battleSent == False:
+            print("preparing to send battle request")
+            battleReq = {"requestType":"battleReq","enemyU":self.enemyUsername}
+            self.send(battleReq)
+            print("sent battle request to",self.username)
+            battleSent = True
+
+        if battleSent == True and self.battleAccepted == False and self.pendingBattle == True:
+            response = self.recive()
+            if response["requestType"]=="battleReq" and response["battleAccepted"]==True: 
+                print(self.getUsername(), "has accepted the battle")
+                self.send({"requestType":"battleReq","battleAccepted":True})
+                self.battleAccepted = True
+                print("reciving pos data")
+
+        if self.battleAccepted == True:
+            data = self.recive()
+            if data["requestType"] == "posData":
+                self.x = data["x"]
+                self.y = data["y"]
+                if "clickPos" in data:
+                    self.click = data["clickPos"]
+
 
     def main(self):
         print("client initialised. beginning main loop",self.addr)
         if self.loggedIn != True: #TODO while loop?
             self.login()
         if self.loggedIn == True:
-            requestHandlerThread = threading.Thread(target=self.requestHandler)
-            waitforbattlethread = threading.Thread(target=self.waitForBattle)
-            requestHandlerThread.start()
-            waitforbattlethread.start()
+            self.requestHandler()
 
-
-            
-            
 
 
     def startBattle(self,enemyU):
@@ -180,6 +172,8 @@ class Client:
 
         if loginData["requestType"] == "loginRequest":
             username = loginData["username"]
+            
+            #TODO CHECK PASSWORD WITH DATABASE
             
             #password = data["password"]
             #if username in clients.keys():
