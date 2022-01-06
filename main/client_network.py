@@ -12,9 +12,9 @@ class Network(): #TODO reciving should be done outside of the network
         self.BUFSIZ = 1024
         self.connected = False
         self.enemyUsername = None
-        self.enemyPos = None
+        self.enemyData = None
         self.onlineUsers = []
-
+        self.username = None #If username is none, user is not logged in
         self.reduceHp = None
 
 
@@ -62,11 +62,11 @@ class Network(): #TODO reciving should be done outside of the network
             print("error",e)
         
 
-    def connect(self,username):
+    def connect(self,username): #Connects to the server and attempts to login. Returns true if logged in.
+
         try:
             self.client.connect(self.addr)
             self.connected = True
-
         except Exception as e:
             print("Error connecting to server:",e)
             return False
@@ -79,24 +79,23 @@ class Network(): #TODO reciving should be done outside of the network
             print("connected")
             return True
 
-    def main(self):
-        if self.connected == True:
-            self.enemyUsername = None
-            self.enemyPos = None
-        while self.connected:
-            response = self.recive()
-            if response["requestType"]=="battleReq":
-                self.waitForBattle(response)
-            if response["requestType"] == "getOnlineUsers":
-                self.onlineUsers = response["onlineUsers"]
+    def reciveRequests(self):
+        response = self.recive()
+        if response["requestType"]=="battleReq":
+            return response["enemyU"]
+        elif response["requestType"] == "getOnlineUsers":
+            self.onlineUsers = response["onlineUsers"]
+            return None
+        else:
+            return None
     
-    def startBattle(self):
+    def sendBattleReq(self,enemyU): #gets a list of online users then sends battle request with provided username if user is online
         self.send({"requestType":"getOnlineUsers"})
-        while bool(self.onlineUsers) == False:
+        while bool(self.onlineUsers) == False: #waits for response
             pass
         #TEMPORARILY JUST PICKS ANY PERSON
-        for enemyU in self.onlineUsers:
-            if enemyU != self.username:
+        for username in self.onlineUsers: #Checks if user is online
+            if enemyU == username:
                 print("sending battle request")
                 self.send({"requestType":"startBattle","enemyU":enemyU})
                     
@@ -116,44 +115,51 @@ class Network(): #TODO reciving should be done outside of the network
             return None
 
     def enemyConnected(self):
-        return self.enemyUsername
+        if self.enemyUsername == None:
+            return True
+        else:
+            return False
 
     
-    def waitForBattle(self,response):
-            accept = {"requestType":"battleReq","battleAccepted":True}    
-            self.send(accept)
-            confirm = self.recive()
-            if confirm == accept:
-                print("starting a battle with", response["enemyU"])
-                self.enemyUsername = response["enemyU"]
-                while True:
-                    data = self.recive()
-                    if data != None:
-                        if data["requestType"] == "posData":
+    def waitForBattle(self,enemyU):
+        accept = {"requestType":"battleReq","battleAccepted":True}    
+        self.send(accept)
+        confirm = self.recive()
+        if confirm == accept:
+            print("starting a battle with", enemyU)
+            self.enemyUsername = enemyU
+            return True
 
-                            if "reduceHp" in data: #added here just in case it gets lost
-                                self.reduceHp = data["reduceHp"] #TODO if takes multiple damage needs to add it up
-                                
+    def reciveData(self):
+        data = self.recive()
+        if data != None:
+            if data["requestType"] == "posData":
+                            
 
-                            self.enemyPos = data #TODO seperate pos data from other data and fix variable names
-                        if data["requestType"] == "opponentDisconnect":
-                            self.enemyUsername = None
-                            break
-                    elif data == None:
-                        print("no data")
+                if "reduceHp" in data:  #game loop might fetch pos data and miss this data, so it is stored in network as variables 
+                    if self.reduceHp != None:
+                        self.reduceHp += data["reduceHp"]
+                    else:
+                        self.reduceHp = data["reduceHp"]
+
+                    self.enemyData = data
+
+            if data["requestType"] == "opponentDisconnect":
+                self.enemyUsername = None
 
 
+        else:
+            print("error")
+                        
             
 
-    def getEnemyPos(self):
+    def getEnemyData(self):
         if self.reduceHp != None:
-            self.enemyPos["reduceHp"] = self.reduceHp
+            self.enemyData["reduceHp"] = self.reduceHp
             self.reduceHp = None
-        
-        return self.enemyPos
+        return self.enemyData
             
 
-        #this waits for an enemy to connect, and once it connects it will constantly receive pos
     
     def isConnected(self):
         return self.connected

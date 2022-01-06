@@ -154,17 +154,9 @@ class Game():
         
         self.win = pygame.display.set_mode((self.width,self.height))
         pygame.display.set_caption("Client")
-        self.connected = False
+
 
     
-    def loadNetwork(self,username):
-        connect = self.n.connect(username)
-        if connect:
-            thread = threading.Thread(target=self.n.main)
-            thread.start()
-            return True
-        else:
-            return False
 
     def renderBattle(self,win,all_sprites):
         all_sprites.update() #update sprites
@@ -179,32 +171,50 @@ class Game():
         pass
     
     def mainMenu(self):
-        buttons = [Button("Start",self.width/2,self.height/2,(0,255,0))]
-        inputBoxes = [InputBox(100, 100, 140, 32)]
+
+        #Menu UI
+        buttons = [Button("Connect",self.width/2,self.height/2,(0,255,0))]
+        inputBoxes = [InputBox(100, 100, 140, 32),InputBox(100, 150, 140, 32)]
+
+        #Menu loop
         menuScreen = True
-        
         while menuScreen:
         
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
+            for event in pygame.event.get(): #Event handler
+
+                if event.type == pygame.QUIT: 
                     menuScreen = self.exit()
                     break
                 
-                for box in inputBoxes:
-                    box.handle_event(event)
+                for box in inputBoxes: 
+                    box.handle_event(event) #handle input box events
 
-                if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.type == pygame.MOUSEBUTTONDOWN: #handle button events
                     pos = pygame.mouse.get_pos()
                     for button in buttons:
-                        if button.click(pos):
-                            print(inputBoxes[0].text)
-                            self.connected = self.loadNetwork(inputBoxes[0].text)
-                            if self.connected:
-                                self.n.startBattle()
+                        if button.click(pos): #if a button is clicled chech which one
+
+                            if button.text == "Connect":
+                                if self.n.connect(inputBoxes[0].text): #attempts to connect with given username (TODO add password)
+                                    button.text == "Start Battle"
+
+                            if button.text == "Start Battle" and self.n.isConnected(): #TODO Check if username is blank
+                                self.n.sendBattleReq(inputBoxes[1].text)
+                                
+
+            if self.n.isConnected():
+                enemyU = None
+                enemyU = self.n.reciveRequests()
+                if enemyU != None: #if a request has been recived
+                    if self.n.waitForBattle(enemyU):
+                        self.battle()
+
+                    
     
-            if self.n.enemyConnected() != None and self.connected and self.n.getEnemyPos() != None:
-                self.battle() #START GAME
+            # if self.n.enemyConnected() != None and self.n.isConnected() and self.n.getEnemyData() != None: #if enemy is ready then load battle
+            #     self.battle() #START GAME
         
+
             #Draw Menu screen
             self.win.fill((255,255,255))
             font = pygame.font.Font('freesansbold.ttf',115)
@@ -221,7 +231,7 @@ class Game():
             for button in buttons:
                 button.draw(self.win)
 
-            #draw input boxes
+            #Draw input boxes
             for box in inputBoxes:
                 box.draw(self.win)
                 
@@ -232,63 +242,62 @@ class Game():
 
     def battle(self):
 
-    
-        run = True
 
+        #initiate sprites
         all_sprites = pygame.sprite.Group()
-
         p = Player(50,50,0,255,0,self)
         e = Player(50,50,255,0,0,self) #TODO: need to pick which side each player spawns on
         all_sprites.add(p)
         all_sprites.add(e)
 
         
-
-        while run and self.connected:
-            pos = None
+        run = True
+        while run and self.n.isConnected() and self.n.enemyConnected():
+            clickPos = None
             pygame.time.delay(20)
-            self.connected = self.n.isConnected()
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT or self.connected == False:
-                    run = self.exit()
+                    run = not self.exit()
                     #return back to menu screen?
                 
                 if event.type == pygame.MOUSEBUTTONDOWN:
-                    pos = pygame.mouse.get_pos()
+                    clickPos = pygame.mouse.get_pos()
                     
             
 
             
             p.move() #checks for key prsses, and moves charachter
 
-           
+           #Network handler
+
             try:  #network things have exception handling
-                info = p.getPos()
-                
-                if pos != None:
-                    info["clickPos"] = pos
-                    print(pos)
-                
-                self.n.send(info)
-                enemyData = self.n.getEnemyPos()
+
+                #Send player data
+                playerData = p.getPos()
+                if clickPos != None:
+                    playerData["clickPos"] = clickPos
+                self.n.send(playerData)
+
+                #Update enemy data
+                self.n.reciveData()
+                enemyData = self.n.getEnemyData()
                 e.dataUpdate(enemyData)
+
             except Exception as exc:
                 #TODO check when this happens
                 print(exc)
 
 
-            self.renderBattle(self.win,all_sprites) #RENDER
+            self.renderBattle(self.win,all_sprites) #Render battle
         
     def exit(self):
         pygame.quit()
         sys.exit()
         #TODO disable network
         #TODO save anything?
-        return False
+        return True
 
 
 g = Game()
 g.mainMenu()
-
-
