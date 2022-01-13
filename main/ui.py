@@ -21,7 +21,10 @@ class Button:
         if self.x <= x1 <= self.x + self.width and self.y <= y1 <= self.y + self.height:
             return True
         else:
-            return False     
+            return False   
+
+    def changeText(self,text):
+        self.text = text
 
 class InputBox:
 

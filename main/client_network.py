@@ -3,8 +3,16 @@ from json.decoder import JSONDecoder
 import socket
 import json
 
+def log(event,e=None):
+    if e != None:
+        print("ERROR |", event, e )
+    else:
+        print("log:", event)
+    #TODO save to file
+
 class Network(): #TODO reciving should be done outside of the network
     def __init__(self):
+        log("Initializing network")
         self.client = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
         self.server = "127.0.0.1"
         self.port = 5555
@@ -14,6 +22,7 @@ class Network(): #TODO reciving should be done outside of the network
         self.enemyUsername = None
         self.enemyData = None
         self.onlineUsers = []
+        self.requestedEnemy = None
         self.username = None #If username is none, user is not logged in
         self.reduceHp = None
 
@@ -63,24 +72,40 @@ class Network(): #TODO reciving should be done outside of the network
         
 
     def connect(self,username): #Connects to the server and attempts to login. Returns true if logged in.
-
+        log("Attempting to connect to server")
         try:
             self.client.connect(self.addr)
             self.connected = True
+            log("Sucsessfully connected to server")
         except Exception as e:
-            print("Error connecting to server:",e)
+            log("Failed to connect to server",e)
             return False
 
-        
+        log("Attempting login")
         self.username = self.login(username)
+
         if self.username == None:
+            log("Login failed")
             return False
         elif self.username != None:
-            print("connected")
+            log("Login sucsessful, gathering online users")
+            self.send({"requestType":"getOnlineUsers"})
             return True
 
-    def reciveRequests(self):
+    def reciveRequest(self):
         response = self.recive()
+        
+        if self.requestedEnemy != None:
+            for username in self.onlineUsers: #Checks if user is online
+                if self.requestedEnemy == username:
+                    log("Sending battle request")
+                    self.send({"requestType":"startBattle","enemyU":self.requestedEnemy})
+                    self.requestedEnemy = None
+
+                else:
+                    log("Requested user not online")
+                    self.requestedEnemy = None
+        
         if response["requestType"]=="battleReq":
             return response["enemyU"]
         elif response["requestType"] == "getOnlineUsers":
@@ -90,14 +115,9 @@ class Network(): #TODO reciving should be done outside of the network
             return None
     
     def sendBattleReq(self,enemyU): #gets a list of online users then sends battle request with provided username if user is online
-        self.send({"requestType":"getOnlineUsers"})
-        while bool(self.onlineUsers) == False: #waits for response
-            pass
-        #TEMPORARILY JUST PICKS ANY PERSON
-        for username in self.onlineUsers: #Checks if user is online
-            if enemyU == username:
-                print("sending battle request")
-                self.send({"requestType":"startBattle","enemyU":enemyU})
+        self.requestedEnemy = enemyU
+        log("Enemy request ready")
+
                     
             
     def login(self,username): #function pulled from previous messaging project
@@ -108,7 +128,7 @@ class Network(): #TODO reciving should be done outside of the network
         response = self.recive()
 
         if response["requestType"]=="loginRequest" and response["loginR"]==True: 
-            print("logged in as", username)
+            log("Server accepted login response")
             return username
         
         else:
@@ -122,20 +142,22 @@ class Network(): #TODO reciving should be done outside of the network
 
     
     def waitForBattle(self,enemyU):
+        log("Accepting battle")
         accept = {"requestType":"battleReq","battleAccepted":True}    
         self.send(accept)
         confirm = self.recive()
         if confirm == accept:
-            print("starting a battle with", enemyU)
+            log("Starting battle")
             self.enemyUsername = enemyU
             return True
+        else:
+            log("Battle not accepted")
+            return False
 
     def reciveData(self):
         data = self.recive()
         if data != None:
             if data["requestType"] == "posData":
-                            
-
                 if "reduceHp" in data:  #game loop might fetch pos data and miss this data, so it is stored in network as variables 
                     if self.reduceHp != None:
                         self.reduceHp += data["reduceHp"]
@@ -146,6 +168,8 @@ class Network(): #TODO reciving should be done outside of the network
 
             if data["requestType"] == "opponentDisconnect":
                 self.enemyUsername = None
+            
+            
 
 
         else:

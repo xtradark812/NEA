@@ -9,6 +9,9 @@ from ui import Button
 from ui import InputBox
 from client_network import Network
 
+def log(event):
+    print("log: ", event)
+    #TODO save to file
 
 class Controls():
     def __init__(self):
@@ -146,6 +149,7 @@ class Player(pygame.sprite.Sprite):
 
 class Game():
     def __init__(self):
+        log("Initializing game")
         pygame.init()
         self.controls = Controls()
         self.n = Network()
@@ -154,6 +158,7 @@ class Game():
         
         self.win = pygame.display.set_mode((self.width,self.height))
         pygame.display.set_caption("Client")
+        log("Game initialized")
 
 
     
@@ -168,16 +173,16 @@ class Game():
     #TODO load textures method
 
     def renderUI(self):
-        pass
+        pass #TODO use this method to render HP bar
     
     def mainMenu(self):
-
         #Menu UI
         buttons = [Button("Connect",self.width/2,self.height/2,(0,255,0))]
         inputBoxes = [InputBox(100, 100, 140, 32),InputBox(100, 150, 140, 32)]
 
         #Menu loop
         menuScreen = True
+        log("Menu loaded")
         while menuScreen:
         
             for event in pygame.event.get(): #Event handler
@@ -195,18 +200,22 @@ class Game():
                         if button.click(pos): #if a button is clicled chech which one
 
                             if button.text == "Connect":
+                                log("Attempting to connect to server")
                                 if self.n.connect(inputBoxes[0].text): #attempts to connect with given username (TODO add password)
-                                    button.text == "Start Battle"
-
+                                    log("Connected, ready for battle")
+                                    button.changeText("Start Battle")
+                                    
                             if button.text == "Start Battle" and self.n.isConnected(): #TODO Check if username is blank
+                                log("Attempting to start battle")
                                 self.n.sendBattleReq(inputBoxes[1].text)
                                 
 
             if self.n.isConnected():
                 enemyU = None
-                enemyU = self.n.reciveRequests()
+                enemyU = self.n.reciveRequest()
                 if enemyU != None: #if a request has been recived
                     if self.n.waitForBattle(enemyU):
+                        log("Loading battle")
                         self.battle()
 
                     
