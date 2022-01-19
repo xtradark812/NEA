@@ -13,22 +13,31 @@ s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 clients = []
 
+def log(event,e=None):
+    if e != None:
+        print("ERROR |", event, e )
+    else:
+        print("log:", event)
+    #TODO save to file
+
 try:
     s.bind((server,port))
     s.listen(2)
-    print("Waiting for a connection")
+    log("Waiting for a connection")
 except socket.error as e:
     str(e)
-    print(e)
+    log("error connecting",e)
 
 
 
 class Client:
     def __init__(self,user,addr):
-        print("initializing connection with",addr)
-        self.connected = False
         self.user = user
         self.addr = addr
+        self.clientLog("initializing user "+"%s:%s" % addr)
+
+
+        self.connected = False
         self.BUFSIZ = 1024
         self.username = None
         self.loggedIn = False
@@ -45,6 +54,13 @@ class Client:
 
         #self.sendThread = threading.Thread(target=self.send)
 
+    def clientLog(self,event,e=None):
+        if e != None:
+            print(self.addr," ERROR |", event, e )
+        else:
+            print(self.addr," log:", event)
+            #TODO save to file
+
     def send(self,data):
         # print("send:",data)
         serialized_data = json.dumps(data) #serialize data
@@ -57,7 +73,6 @@ class Client:
             data = self.user.recv(self.BUFSIZ).decode("utf8")
             if not data:
                 self.disconnect()
-                print("disconnected")
             else:
 
                 #this part of the function will fix broken pakets.
@@ -86,9 +101,10 @@ class Client:
                 return response
             
         except socket.timeout:
+            self.clientLog("socket timeout")
             return {"requestType":"timeout"}
         except Exception as e:
-            print("error",e)
+            self.clientLog("recive error",e)
             return {"requestType":e}
             
     def requestHandler(self):
@@ -99,6 +115,7 @@ class Client:
             opponentU = data["enemyU"]
             for client in clients: #Searches list of connected clients
                 if client.getUsername() == opponentU and client.isconnected() == True and client.isLoggedIn() == True:
+                    self.clientLog("starting battle")
                     battle = Battle(client,self) #starts battle (TODO should be a battle request )
 
         elif data["requestType"] == "getOnlineUsers":
@@ -114,16 +131,16 @@ class Client:
             print("preparing to send battle request")
             battleReq = {"requestType":"battleReq","enemyU":self.enemyUsername}
             self.send(battleReq)
-            print("sent battle request to",self.username)
+            self.clientLog("sent battle request to "+self.username)
             battleSent = True
 
         if battleSent == True and self.battleAccepted == False and self.pendingBattle == True:
             response = self.recive()
             if response["requestType"]=="battleReq" and response["battleAccepted"]==True: 
-                print(self.getUsername(), "has accepted the battle")
+                self.clientLog(self.getUsername()+" has accepted the battle")
                 self.send({"requestType":"battleReq","battleAccepted":True})
                 self.battleAccepted = True
-                print("reciving pos data")
+                self.clientLog("reciving pos data")
 
         if self.battleAccepted == True:
             data = self.recive()
@@ -152,7 +169,7 @@ class Client:
 
     def disconnect(self):
             self.connected = False
-            print(self.addr, "client disconnected")
+            self.clientLog(self.addr+" client disconnected")
             self.user.close()
             clients.remove(self)
             self.loggedIn =  False
@@ -190,7 +207,7 @@ class Client:
             
             loginReq = {"requestType":"loginRequest","loginR":True}
             self.send(loginReq)
-            print("confirmed login:",username,"at","%s:%s" % self.addr)
+            self.clientLog("confirmed login: "+username+" at"+"%s:%s" % self.addr)
             self.username = username
             self.loggedIn = True
             self.connected = True
