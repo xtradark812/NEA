@@ -1,3 +1,11 @@
+#MAIN TODO:
+# - finish menu screen and properly load into game
+# - UI for in game, health bar, and register hits
+# - database for login
+# - offline AI enemy
+
+
+
 from typing import Counter
 
 import pygame
@@ -211,7 +219,7 @@ class Game():
                                 
 
             if self.n.isConnected():
-                enemyU = None
+                self.n.getOnlineUsers()
                 enemyU = self.n.reciveRequest()
                 if enemyU != None: #if a request has been recived
                     if self.n.waitForBattle(enemyU):

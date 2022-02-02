@@ -92,6 +92,9 @@ class Network(): #TODO reciving should be done outside of the network
             self.send({"requestType":"getOnlineUsers"})
             return True
 
+    def getOnlineUsers(self):
+        self.send({"requestType":"getOnlineUsers"})
+
     def reciveRequest(self):
         response = self.recive()
         
@@ -143,7 +146,7 @@ class Network(): #TODO reciving should be done outside of the network
     
     def waitForBattle(self,enemyU):
         log("Accepting battle")
-        accept = {"requestType":"battleReq","battleAccepted":True}    
+        accept = {"requestType":"battleReq","battleAccepted":True}    #This should be in handler loop TODO
         self.send(accept)
         confirm = self.recive()
         if confirm == accept:

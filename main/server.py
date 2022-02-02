@@ -44,7 +44,10 @@ class Client:
 
         self.pendingBattle = False
         self.enemyUsername = None
+        self.battleSent = False
         self.battleAccepted = False
+
+        self.inBattle = False
 
         self.x = 0
         self.y = 0 
@@ -108,10 +111,11 @@ class Client:
             return {"requestType":e}
             
     def requestHandler(self):
-        self.user.settimeout(1) 
+        # self.user.settimeout(1) 
         data = self.recive() 
 
         if data["requestType"] == "startBattle":
+            self.clientLog("Battle reqest recieved")
             opponentU = data["enemyU"]
             for client in clients: #Searches list of connected clients
                 if client.getUsername() == opponentU and client.isconnected() == True and client.isLoggedIn() == True:
@@ -125,18 +129,16 @@ class Client:
                     clientList.append(client.getUsername())
             self.send({"requestType":"getOnlineUsers","onlineUsers":clientList})
         
-        battleSent = False
 
-        if self.pendingBattle == True and self.battleAccepted == False and battleSent == False:
+        if self.pendingBattle == True and self.battleAccepted == False and self.battleSent == False:
             print("preparing to send battle request")
             battleReq = {"requestType":"battleReq","enemyU":self.enemyUsername}
             self.send(battleReq)
             self.clientLog("sent battle request to "+self.username)
             battleSent = True
 
-        if battleSent == True and self.battleAccepted == False and self.pendingBattle == True:
-            response = self.recive()
-            if response["requestType"]=="battleReq" and response["battleAccepted"]==True: 
+        if self.battleSent == True and self.battleAccepted == False and self.pendingBattle == True:
+            if data["requestType"]=="battleReq" and data["battleAccepted"]==True: 
                 self.clientLog(self.getUsername()+" has accepted the battle")
                 self.send({"requestType":"battleReq","battleAccepted":True})
                 self.battleAccepted = True
@@ -155,7 +157,7 @@ class Client:
         print("client initialised. beginning main loop",self.addr)
         if self.loggedIn != True: #TODO while loop?
             self.login()
-        if self.loggedIn == True:
+        while self.loggedIn:
             self.requestHandler()
 
 
