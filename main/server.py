@@ -46,6 +46,7 @@ class Client:
         self.enemyUsername = None
         self.battleSent = False
         self.battleAccepted = False
+        self.pendingClient = None
 
         self.inBattle = False
 
@@ -114,13 +115,26 @@ class Client:
         # self.user.settimeout(1) 
         data = self.recive() 
 
+        if self.battleAccepted == True:
+            if data["requestType"] == "posData":
+                self.x = data["x"]
+                self.y = data["y"]
+                if "clickPos" in data:
+                    self.click = data["clickPos"]
+            return None
+
         if data["requestType"] == "startBattle":
             self.clientLog("Battle reqest recieved")
             opponentU = data["enemyU"]
             for client in clients: #Searches list of connected clients
                 if client.getUsername() == opponentU and client.isconnected() == True and client.isLoggedIn() == True:
-                    self.clientLog("starting battle")
-                    battle = Battle(client,self) #starts battle (TODO should be a battle request )
+                    self.clientLog("attempting to start battle")
+                    battleReq = {"requestType":"battleReq","enemyU":opponentU}
+                    self.send(battleReq)
+                    self.clientLog("sent battle request to "+opponentU)
+                    self.pendingClient = client
+                    self.battleSent = True
+                     
 
         elif data["requestType"] == "getOnlineUsers":
             clientList = []
@@ -130,27 +144,17 @@ class Client:
             self.send({"requestType":"getOnlineUsers","onlineUsers":clientList})
         
 
-        if self.pendingBattle == True and self.battleAccepted == False and self.battleSent == False:
-            print("preparing to send battle request")
-            battleReq = {"requestType":"battleReq","enemyU":self.enemyUsername}
-            self.send(battleReq)
-            self.clientLog("sent battle request to "+self.username)
-            battleSent = True
 
-        if self.battleSent == True and self.battleAccepted == False and self.pendingBattle == True:
+        if self.battleSent == True and self.battleAccepted == False:
             if data["requestType"]=="battleReq" and data["battleAccepted"]==True: 
-                self.clientLog(self.getUsername()+" has accepted the battle")
+                self.clientLog(self.enemyUsername+" has accepted the battle")
                 self.send({"requestType":"battleReq","battleAccepted":True})
+                self.pendingClient.send({"requestType":"battleReq","battleAccepted":True})
                 self.battleAccepted = True
-                self.clientLog("reciving pos data")
+                battle = Battle(self.pendingClient,self) #starts battle
+                
 
-        if self.battleAccepted == True:
-            data = self.recive()
-            if data["requestType"] == "posData":
-                self.x = data["x"]
-                self.y = data["y"]
-                if "clickPos" in data:
-                    self.click = data["clickPos"]
+
 
 
     def main(self):
@@ -160,14 +164,6 @@ class Client:
         while self.loggedIn:
             self.requestHandler()
 
-
-
-    def startBattle(self,enemyU):
-        self.enemyUsername = enemyU
-        self.pendingBattle = True
-
-    def checkBattleAccepted(self):
-        return self.battleAccepted
 
     def disconnect(self):
             self.connected = False
@@ -257,13 +253,7 @@ class Battle:
 
 
     def initBattle(self):
-        while True:
-            self.client1.startBattle(self.client2.getUsername())
-            self.client2.startBattle(self.client1.getUsername())
-
-            if  self.client1.checkBattleAccepted() == True and self.client2.checkBattleAccepted() == True:
-                self.sendPos(self.client1,self.client2)
-                break
+        self.sendPos(self.client1,self.client2)
 
 
     def sendPos(self,p1,p2):

@@ -211,6 +211,7 @@ class Game():
                                 log("Attempting to connect to server")
                                 if self.n.connect(inputBoxes[0].text): #attempts to connect with given username (TODO add password)
                                     log("Connected, ready for battle")
+                                    self.n.getOnlineUsers()
                                     button.changeText("Start Battle")
                                     
                             if button.text == "Start Battle" and self.n.isConnected(): #TODO Check if username is blank
@@ -219,12 +220,10 @@ class Game():
                                 
 
             if self.n.isConnected():
-                self.n.getOnlineUsers()
                 enemyU = self.n.reciveRequest()
                 if enemyU != None: #if a request has been recived
-                    if self.n.waitForBattle(enemyU):
-                        log("Loading battle")
-                        self.battle()
+                    log("Loading battle")
+                    self.battle()
 
                     
     

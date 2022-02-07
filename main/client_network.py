@@ -98,19 +98,15 @@ class Network(): #TODO reciving should be done outside of the network
     def reciveRequest(self):
         response = self.recive()
         
-        if self.requestedEnemy != None:
-            for username in self.onlineUsers: #Checks if user is online
-                if self.requestedEnemy == username:
-                    log("Sending battle request")
-                    self.send({"requestType":"startBattle","enemyU":self.requestedEnemy})
-                    self.requestedEnemy = None
+        if response["requestType"]=="battleReq" :
+            self.acceptBattle(response["enemyU"]) #TODO this atomatically accepts battle request, should be in game loop
+            return None
 
-                else:
-                    log("Requested user not online")
-                    self.requestedEnemy = None
-        
-        if response["requestType"]=="battleReq":
-            return response["enemyU"]
+        if  response["requestType"]== "battleReq" and response["battleAccepted"] == True:
+            log("Starting battle")
+            self.enemyUsername = response["enemyU"]
+            return self.enemyUsername
+
         elif response["requestType"] == "getOnlineUsers":
             self.onlineUsers = response["onlineUsers"]
             return None
@@ -120,6 +116,14 @@ class Network(): #TODO reciving should be done outside of the network
     def sendBattleReq(self,enemyU): #gets a list of online users then sends battle request with provided username if user is online
         self.requestedEnemy = enemyU
         log("Enemy request ready")
+        for username in self.onlineUsers: #Checks if user is online
+            if self.requestedEnemy == username:
+                log("Sending battle request")
+                self.send({"requestType":"startBattle","enemyU":self.requestedEnemy})
+            else:
+                log("Requested user not online")
+                self.requestedEnemy = None
+
 
                     
             
@@ -144,18 +148,12 @@ class Network(): #TODO reciving should be done outside of the network
             return False
 
     
-    def waitForBattle(self,enemyU):
+    def acceptBattle(self,enemyU):
         log("Accepting battle")
-        accept = {"requestType":"battleReq","battleAccepted":True}    #This should be in handler loop TODO
+        accept = {"requestType":"battleReq","battleAccepted":True,"enemyU":enemyU} 
         self.send(accept)
-        confirm = self.recive()
-        if confirm == accept:
-            log("Starting battle")
-            self.enemyUsername = enemyU
-            return True
-        else:
-            log("Battle not accepted")
-            return False
+
+
 
     def reciveData(self):
         data = self.recive()
