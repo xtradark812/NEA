@@ -47,6 +47,7 @@ class Client:
         self.battleSent = False
         self.battleAccepted = False
         self.pendingClient = None
+        self.requestedEnemy = None
 
         self.inBattle = False
 
@@ -129,11 +130,8 @@ class Client:
             for client in clients: #Searches list of connected clients
                 if client.getUsername() == opponentU and client.isconnected() == True and client.isLoggedIn() == True:
                     self.clientLog("attempting to start battle")
-                    battleReq = {"requestType":"battleReq","enemyU":opponentU}
-                    self.send(battleReq)
-                    self.clientLog("sent battle request to "+opponentU)
+                    client.sendBattleRequest(self.username)
                     self.pendingClient = client
-                    self.battleSent = True
                      
 
         elif data["requestType"] == "getOnlineUsers":
@@ -147,15 +145,26 @@ class Client:
 
         if self.battleSent == True and self.battleAccepted == False:
             if data["requestType"]=="battleReq" and data["battleAccepted"]==True: 
-                self.clientLog(self.enemyUsername+" has accepted the battle")
-                self.send({"requestType":"battleReq","battleAccepted":True})
-                self.pendingClient.send({"requestType":"battleReq","battleAccepted":True})
+                self.clientLog(self.username+" has accepted the battle")
+                self.send({"requestType":"battleConfirm","battleAccepted":True,"enemyU":self.requestedEnemy})
                 self.battleAccepted = True
-                battle = Battle(self.pendingClient,self) #starts battle
+            
+        if self.pendingClient:
+            if self.pendingClient.checkIfAccepted():
+                    self.send({"requestType":"battleConfirm","battleAccepted":True,"enemyU":self.pendingClient.getUsername()})
+                    self.battleAccepted = True
+                    self.clientLog("creating battle")
+                    battle = Battle(self.pendingClient,self) #starts battle
                 
+    def checkIfAccepted(self):
+        return self.battleAccepted
 
-
-
+    def sendBattleRequest(self,enemyU):
+        self.requestedEnemy = enemyU
+        battleReq = {"requestType":"battleReq","enemyU":enemyU}
+        self.send(battleReq)
+        self.clientLog("sent battle request to "+self.username)
+        self.battleSent = True
 
     def main(self):
         print("client initialised. beginning main loop",self.addr)
@@ -247,13 +256,11 @@ class Battle:
         self.width = 120
         self.height = 240
 
-        battlethread = threading.Thread(target=self.initBattle)
+        battlethread = threading.Thread(target=self.sendPos, args=(self.client1,self.client2))
         battlethread.start()
 
 
 
-    def initBattle(self):
-        self.sendPos(self.client1,self.client2)
 
 
     def sendPos(self,p1,p2):

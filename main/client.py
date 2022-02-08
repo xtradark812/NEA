@@ -206,20 +206,21 @@ class Game():
                     pos = pygame.mouse.get_pos()
                     for button in buttons:
                         if button.click(pos): #if a button is clicled chech which one
-
-                            if button.text == "Connect":
-                                log("Attempting to connect to server")
-                                if self.n.connect(inputBoxes[0].text): #attempts to connect with given username (TODO add password)
-                                    log("Connected, ready for battle")
-                                    self.n.getOnlineUsers()
-                                    button.changeText("Start Battle")
-                                    
+                            
                             if button.text == "Start Battle" and self.n.isConnected(): #TODO Check if username is blank
                                 log("Attempting to start battle")
                                 self.n.sendBattleReq(inputBoxes[1].text)
                                 
+                            if button.text == "Connect":
+                                log("Attempting to connect to server")
+                                if self.n.connect(inputBoxes[0].text): #attempts to connect with given username (TODO add password)
+                                    log("Connected, ready for battle")
+                                    button.changeText("Start Battle")
+                                    
+                           
 
             if self.n.isConnected():
+                self.n.getOnlineUsers()
                 enemyU = self.n.reciveRequest()
                 if enemyU != None: #if a request has been recived
                     log("Loading battle")
