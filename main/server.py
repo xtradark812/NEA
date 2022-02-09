@@ -41,6 +41,7 @@ class Client:
         self.BUFSIZ = 1024
         self.username = None
         self.loggedIn = False
+        self.ecounter = 0
 
         self.pendingBattle = False
         self.enemyUsername = None
@@ -68,8 +69,11 @@ class Client:
 
     def send(self,data):
         # print("send:",data)
-        serialized_data = json.dumps(data) #serialize data
-        self.user.sendall(bytes(serialized_data, "utf8")) ### SENDS LOGIN DATA TO SERVER [loginRequest,username]
+        try:
+            serialized_data = json.dumps(data) #serialize data
+            self.user.sendall(bytes(serialized_data, "utf8")) ### SENDS LOGIN DATA TO SERVER [loginRequest,username]
+        except Exception as e:
+            self.clientLog("send error",e)
 
     def recive(self):
         
@@ -80,41 +84,53 @@ class Client:
                 self.disconnect()
             else:
 
-                #this part of the function will fix broken pakets.
-                #when the client tries to send hundreds of json objects a seccond, sometimes the objects get stuck together
-                #to solve this problem, this algorithim find exactly the data that is needed from each sent item, and strips off everything else
-                #if it does not work (e.g. the server recives incomplete data like "123}"), it will call itself and try again
-                i = 0
-                string = False
-                isdict = False
-                newData = ""
-                finalData = ""
-                for char in data:
-                    if char == "{" and string == False:
-                        newData = data[i:]
-                        isdict = True
-                    if char == "}" and isdict == True and string == False:
-                        finalData = newData[:i+1]
-                        string = True
-                    i+=1
-                if string == False:
-                    tryAgain = self.recive()
-                    return tryAgain
+                # #this part of the function will fix broken pakets.
+                # #when the client tries to send hundreds of json objects a seccond, sometimes the objects get stuck together
+                # #to solve this problem, this algorithim find exactly the data that is needed from each sent item, and strips off everything else
+                # #if it does not work (e.g. the server recives incomplete data like "123}"), it will call itself and try again
+                # i = 0
+                # string = False
+                # isdict = False
+                # newData = ""
+                # finalData = ""
+                # for char in data:
+                #     if char == "{" and string == False:
+                #         newData = data[i:]
+                #         isdict = True
+                #     if char == "}" and isdict == True and string == False:
+                #         finalData = newData[:i+1]
+                #         string = True
+                #     i+=1
+                # if string == False:
+                #     tryAgain = self.recive()
+                #     return tryAgain
                 
-                response, index = decoder.raw_decode(finalData) ### WAITS FOR DATA TO BE RETURNED
-                # print("response",response)
+                response, index = decoder.raw_decode(data) ### WAITS FOR DATA TO BE RETURNED
+                # # print("response",response)
                 return response
             
         except socket.timeout:
             self.clientLog("socket timeout")
-            return {"requestType":"timeout"}
+            return {"requestType":"error","error":"socketTimeout"}
         except Exception as e:
             self.clientLog("recive error",e)
-            return {"requestType":e}
+            return {"requestType":"error","error":e}
             
     def requestHandler(self):
         # self.user.settimeout(1) 
+        if not self.connected:
+            return None
+        
         data = self.recive() 
+
+        if data["requestType"] == "error":
+            self.ecounter +=1
+        else:
+            self.ecounter = 0 
+        if self.ecounter > 30:
+            self.clientLog("maximum recive errors, shutting down connection")
+            self.disconnect
+
 
         if self.battleAccepted == True:
             if data["requestType"] == "posData":
@@ -123,6 +139,13 @@ class Client:
                 if "clickPos" in data:
                     self.click = data["clickPos"]
             return None
+
+
+        if self.battleSent == True and self.battleAccepted == False:
+            if data["requestType"]=="battleReq" and data["battleAccepted"]==True: 
+                self.clientLog(self.username+" has accepted the battle, sending confirm")
+                self.send({"requestType":"battleConfirm","battleAccepted":True,"enemyU":self.requestedEnemy})
+                self.battleAccepted = True
 
         if data["requestType"] == "startBattle":
             self.clientLog("Battle reqest recieved")
@@ -142,12 +165,6 @@ class Client:
             self.send({"requestType":"getOnlineUsers","onlineUsers":clientList})
         
 
-
-        if self.battleSent == True and self.battleAccepted == False:
-            if data["requestType"]=="battleReq" and data["battleAccepted"]==True: 
-                self.clientLog(self.username+" has accepted the battle")
-                self.send({"requestType":"battleConfirm","battleAccepted":True,"enemyU":self.requestedEnemy})
-                self.battleAccepted = True
             
         if self.pendingClient:
             if self.pendingClient.checkIfAccepted():
@@ -170,7 +187,7 @@ class Client:
         print("client initialised. beginning main loop",self.addr)
         if self.loggedIn != True: #TODO while loop?
             self.login()
-        while self.loggedIn:
+        while self.loggedIn and self.connected:
             self.requestHandler()
 
 
@@ -181,6 +198,7 @@ class Client:
             clients.remove(self)
             self.loggedIn =  False
             self.username = None
+            self.enemyUsername = None
 
     def isconnected(self):
         return self.connected
