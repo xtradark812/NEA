@@ -269,12 +269,13 @@ class Game():
 
         
         run = True
+        log("Battle loaded")
         while run and self.n.isConnected() and self.n.enemyConnected():
             clickPos = None
             pygame.time.delay(20)
 
             for event in pygame.event.get():
-                if event.type == pygame.QUIT or self.connected == False:
+                if event.type == pygame.QUIT:
                     run = not self.exit()
                     #return back to menu screen?
                 
@@ -303,7 +304,7 @@ class Game():
 
             except Exception as exc:
                 #TODO check when this happens
-                print(exc)
+                log(exc)
 
 
             self.renderBattle(self.win,all_sprites) #Render battle

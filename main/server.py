@@ -267,7 +267,7 @@ class Client:
 class Battle:
     def __init__(self,client1,client2):
         print("2 players connected. initializing battle.")
-        
+        #TODO server decides whos on which side
         self.client1 = client1
         self.client2 = client2
 

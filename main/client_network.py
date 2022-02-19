@@ -145,7 +145,7 @@ class Network(): #TODO reciving should be done outside of the network
             return None
 
     def enemyConnected(self):
-        if self.enemyUsername == None:
+        if self.enemyUsername != None:
             return True
         else:
             return False
