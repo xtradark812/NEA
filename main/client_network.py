@@ -28,7 +28,7 @@ class Network(): #TODO reciving should be done outside of the network
 
 
     def send(self,data):
-        # print("send:",data)
+        print("send:",data)
         serialized_data = json.dumps(data) #serialize data
         self.client.sendall(bytes(serialized_data, "utf8")) ### SENDS DATA TO SERVER 
 
@@ -64,17 +64,23 @@ class Network(): #TODO reciving should be done outside of the network
                 
 
                 response, index = decoder.raw_decode(finalData) ### WAITS FOR DATA TO BE RETURNED
-                # print("response:",response)
+                print("recive:",response)
                 return response
+
+        except socket.timeout:
+            return {"requestType":None}
 
         except Exception as e:
             print("error",e)
+            return {"requestType":None}
+        
         
 
     def connect(self,username): #Connects to the server and attempts to login. Returns true if logged in.
         log("Attempting to connect to server")
         try:
             self.client.connect(self.addr)
+            self.client.settimeout(.5)
             self.connected = True
             log("Sucsessfully connected to server")
         except Exception as e:

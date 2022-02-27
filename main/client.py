@@ -208,6 +208,7 @@ class Game():
                         if button.click(pos): #if a button is clicled chech which one
                             
                             if button.text == "Start Battle" and self.n.isConnected(): #TODO Check if username is blank
+                                self.n.getOnlineUsers()
                                 log("Attempting to start battle")
                                 self.n.sendBattleReq(inputBoxes[1].text)
                                 
@@ -220,7 +221,6 @@ class Game():
                            
 
             if self.n.isConnected():
-                self.n.getOnlineUsers()
                 enemyU = self.n.reciveRequest()
                 if enemyU != None: #if a request has been recived
                     log("Loading battle")

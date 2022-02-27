@@ -68,7 +68,7 @@ class Client:
             #TODO save to file
 
     def send(self,data):
-        # print("send:",data)
+        print("send:",data)
         try:
             serialized_data = json.dumps(data) #serialize data
             self.user.sendall(bytes(serialized_data, "utf8")) ### SENDS LOGIN DATA TO SERVER [loginRequest,username]
@@ -106,7 +106,7 @@ class Client:
                 #     return tryAgain
                 
                 response, index = decoder.raw_decode(data) ### WAITS FOR DATA TO BE RETURNED
-                # # print("response",response)
+                print("recive",response)
                 return response
             
         except socket.timeout:
