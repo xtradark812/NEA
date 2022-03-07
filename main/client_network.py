@@ -30,7 +30,6 @@ class Network(): #TODO reciving should be done outside of the network
 
 
     def send(self,data):
-        print("send:",data)
         serialized_data = json.dumps(data) #serialize data
         self.client.sendall(bytes(serialized_data, "utf8")) ### SENDS DATA TO SERVER 
 
@@ -66,7 +65,6 @@ class Network(): #TODO reciving should be done outside of the network
                 
 
                 response, index = decoder.raw_decode(finalData) ### WAITS FOR DATA TO BE RETURNED
-                print("recive:",response)
                 return response
 
         except socket.timeout:
@@ -195,7 +193,7 @@ class Network(): #TODO reciving should be done outside of the network
                         else:
                             self.reduceHp = data["reduceHp"]
 
-                        self.enemyData = data
+                    self.enemyData = data
 
                 if data["requestType"] == "opponentDisconnect":
                     self.enemyUsername = None

@@ -69,7 +69,6 @@ class Client:
             #TODO save to file
 
     def send(self,data):
-        print("send:",data)
         try:
             serialized_data = json.dumps(data) #serialize data
             self.user.sendall(bytes(serialized_data, "utf8")) ### SENDS LOGIN DATA TO SERVER [loginRequest,username]
@@ -107,18 +106,26 @@ class Client:
                 #     return tryAgain
                 
                 response, index = decoder.raw_decode(data) ### WAITS FOR DATA TO BE RETURNED
-                print("recive",response)
                 return response
             
         except socket.timeout:
-            self.clientLog("socket timeout")
             return {"requestType":"error","error":"socketTimeout"}
         except Exception as e:
             self.clientLog("recive error",e)
             return {"requestType":"error","error":e}
             
     def requestHandler(self):
-        # self.user.settimeout(1) 
+        self.user.settimeout(1) 
+                
+        if self.pendingClient != None and self.battleAccepted == False:
+            accept = self.pendingClient.checkIfAccepted()
+            if accept:
+                    self.clientLog("Both players have accepted the battle")
+                    self.send({"requestType":"battleConfirm","battleAccepted":True,"enemyU":self.pendingClient.getUsername()})
+                    self.pendingClient.send({"requestType":"battleConfirm","battleAccepted":True,"enemyU":self.username})
+                    self.battleAccepted = True
+                    self.clientLog("creating battle")
+                    startBattle(self.pendingClient,self) #starts battle
         
         data = self.recive() 
         if data == None or data["requestType"] == "error":
@@ -129,7 +136,9 @@ class Client:
         if self.ecounter > 30:
             self.clientLog("maximum recive errors, shutting down connection")
             return False
-        elif self.battleAccepted == True: 
+
+
+        if self.battleAccepted == True: 
             if data["requestType"] == "posData":
                 self.x = data["x"]
                 self.y = data["y"]
@@ -137,7 +146,7 @@ class Client:
                     self.click = data["clickPos"]
         elif self.battleSent == True and self.battleAccepted == False:
             if data["requestType"]=="battleReq" and data["battleAccepted"]==True: 
-                self.clientLog(self.username+" has accepted the battle, sending confirm")
+                self.clientLog(self.username+" has accepted the battle")
                 self.battleAccepted = True
         elif data["requestType"] == "startBattle":
             self.clientLog("Battle reqest recieved")
@@ -153,15 +162,7 @@ class Client:
                 if client.isconnected() == True and client.isLoggedIn() == True:
                     clientList.append(client.getUsername())
             self.send({"requestType":"getOnlineUsers","onlineUsers":clientList})
-        
-        if self.pendingClient != None:
-            accept = self.pendingClient.checkIfAccepted()
-            if accept:
-                    self.send({"requestType":"battleConfirm","battleAccepted":True,"enemyU":self.pendingClient.getUsername()})
-                    self.pendingClient.send({"requestType":"battleConfirm","battleAccepted":True,"enemyU":self.username})
-                    self.battleAccepted = True
-                    self.clientLog("creating battle")
-                    startBattle(self.pendingClient,self) #starts battle
+
 
 
         return True
@@ -253,11 +254,7 @@ class Client:
 
 def startBattle(client1,client2):
     battle = Battle(client1,client2)
-    battleThread = threading.Thread(target=battle.sendPos())
-    battleThread.start()
-
     battles.append(battle)
-    battle = None
 
 
 class Battle:
@@ -269,6 +266,8 @@ class Battle:
 
         self.width = 120
         self.height = 240
+        battleThread = threading.Thread(target=self.sendPos)
+        battleThread.start()
 
         
 
