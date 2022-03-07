@@ -155,7 +155,8 @@ class Client:
             self.send({"requestType":"getOnlineUsers","onlineUsers":clientList})
         
         if self.pendingClient != None:
-            if self.pendingClient.checkIfAccepted():
+            accept = self.pendingClient.checkIfAccepted()
+            if accept:
                     self.send({"requestType":"battleConfirm","battleAccepted":True,"enemyU":self.pendingClient.getUsername()})
                     self.pendingClient.send({"requestType":"battleConfirm","battleAccepted":True,"enemyU":self.username})
                     self.battleAccepted = True
