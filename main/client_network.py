@@ -2,12 +2,13 @@ from json.decoder import JSONDecoder
 
 import socket
 import json
+import threading
 
 def log(event,e=None):
     if e != None:
         print("ERROR |", event, e )
     else:
-        print("log:", event)
+        print("loog:", event)
     #TODO save to file
 
 class Network(): #TODO reciving should be done outside of the network
@@ -25,6 +26,7 @@ class Network(): #TODO reciving should be done outside of the network
         self.requestedEnemy = None
         self.username = None #If username is none, user is not logged in
         self.reduceHp = None
+        self.menu = False
 
 
     def send(self,data):
@@ -37,7 +39,7 @@ class Network(): #TODO reciving should be done outside of the network
         decoder = JSONDecoder()
         try:
             data = self.client.recv(self.BUFSIZ).decode("utf8")
-            if not data:
+            if not data or data == None:
                 self.connected = False
                 print("disconnected")
             else:
@@ -98,28 +100,45 @@ class Network(): #TODO reciving should be done outside of the network
             self.getOnlineUsers()
             return True
 
+    def startLoop(self,loop):
+        if loop == "menu":
+            log("Starting menu loop")
+            self.menu = True
+            menuThread = threading.Thread(target=self.reciveRequest)
+            menuThread.start()
+
+        elif loop == "battle":
+            log("Starting battle loop")
+            self.menu = True
+            battleThread = threading.Thread(target=self.reciveData)
+            battleThread.start()
+
     def getOnlineUsers(self):
         self.send({"requestType":"getOnlineUsers"})
 
     def reciveRequest(self):
-        response = self.recive()
+        while self.menu:
+            response = self.recive()
 
-        if response["requestType"]=="battleReq":
-            log("Battle request recived, accepting...")
-            self.acceptBattle(response["enemyU"]) #TODO this atomatically accepts battle request, should be in game loop
-            return None
-
-        if response["requestType"] == "battleConfirm" and response["battleAccepted"] == True:
-            log("Starting battle")
-            self.enemyUsername = response["enemyU"]
-            return self.enemyUsername
-
-        if response["requestType"] == "getOnlineUsers":
-            self.onlineUsers = response["onlineUsers"]
-            return None
+            if response["requestType"]=="battleReq":
+                log("Battle request recived, accepting...")
+                self.acceptBattle(response["enemyU"]) #TODO this atomatically accepts battle request, should be in game loop
+            elif response["requestType"] == "battleConfirm" and response["battleAccepted"] == True:
+                log("Starting battle")
+                self.enemyUsername = response["enemyU"]
+                self.menu = False
+            elif response["requestType"] == "getOnlineUsers":
+                self.onlineUsers = response["onlineUsers"]
 
         return None
-    
+
+    def pendingBattle(self):
+        if self.enemyUsername != None:
+            log("battle pending")
+            return self.enemyUsername, 0 #TODO pick a side
+        else:
+            return None, None
+
     def sendBattleReq(self,enemyU): #gets a list of online users then sends battle request with provided username if user is online
         sent = False
         self.requestedEnemy = enemyU
@@ -166,25 +185,24 @@ class Network(): #TODO reciving should be done outside of the network
 
 
     def reciveData(self):
-        data = self.recive()
-        if data != None:
-            if data["requestType"] == "posData":
-                if "reduceHp" in data:  #game loop might fetch pos data and miss this data, so it is stored in network as variables 
-                    if self.reduceHp != None:
-                        self.reduceHp += data["reduceHp"]
-                    else:
-                        self.reduceHp = data["reduceHp"]
+        while True:
+            data = self.recive()
+            if data != None:
+                if data["requestType"] == "posData":
+                    if "reduceHp" in data:  #game loop might fetch pos data and miss this data, so it is stored in network as variables 
+                        if self.reduceHp != None:
+                            self.reduceHp += data["reduceHp"]
+                        else:
+                            self.reduceHp = data["reduceHp"]
 
-                    self.enemyData = data
+                        self.enemyData = data
 
-            if data["requestType"] == "opponentDisconnect":
-                self.enemyUsername = None
+                if data["requestType"] == "opponentDisconnect":
+                    self.enemyUsername = None
             
+            else:
+                log("error: no data")
             
-
-
-        else:
-            print("error")
                         
             
 

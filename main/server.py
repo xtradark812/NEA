@@ -12,6 +12,7 @@ port = 5555
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 clients = []
+battles = []
 
 def log(event,e=None):
     if e != None:
@@ -55,16 +56,16 @@ class Client:
         self.x = 0
         self.y = 0 
         self.click = None
+
         mainThread = threading.Thread(target=self.main)
         mainThread.start()
 
-        #self.sendThread = threading.Thread(target=self.send)
 
-    def clientLog(self,event,e=None):
+    def clientLog(self,events,e=None):
         if e != None:
-            print(self.addr," ERROR |", event, e )
+            print(self.addr," ERROR |", events, e )
         else:
-            print(self.addr," log:", event)
+            print(self.addr," log:", events)
             #TODO save to file
 
     def send(self,data):
@@ -118,36 +119,27 @@ class Client:
             
     def requestHandler(self):
         # self.user.settimeout(1) 
-        if not self.connected:
-            return None
         
         data = self.recive() 
-
-        if data["requestType"] == "error":
+        if data == None or data["requestType"] == "error":
             self.ecounter +=1
         else:
             self.ecounter = 0 
+        
         if self.ecounter > 30:
             self.clientLog("maximum recive errors, shutting down connection")
-            self.disconnect
-
-
-        if self.battleAccepted == True:
+            return False
+        elif self.battleAccepted == True: 
             if data["requestType"] == "posData":
                 self.x = data["x"]
                 self.y = data["y"]
                 if "clickPos" in data:
                     self.click = data["clickPos"]
-            return None
-
-
-        if self.battleSent == True and self.battleAccepted == False:
+        elif self.battleSent == True and self.battleAccepted == False:
             if data["requestType"]=="battleReq" and data["battleAccepted"]==True: 
                 self.clientLog(self.username+" has accepted the battle, sending confirm")
-                self.send({"requestType":"battleConfirm","battleAccepted":True,"enemyU":self.requestedEnemy})
                 self.battleAccepted = True
-
-        if data["requestType"] == "startBattle":
+        elif data["requestType"] == "startBattle":
             self.clientLog("Battle reqest recieved")
             opponentU = data["enemyU"]
             for client in clients: #Searches list of connected clients
@@ -155,8 +147,6 @@ class Client:
                     self.clientLog("attempting to start battle")
                     client.sendBattleRequest(self.username)
                     self.pendingClient = client
-                     
-
         elif data["requestType"] == "getOnlineUsers":
             clientList = []
             for client in clients:
@@ -164,14 +154,16 @@ class Client:
                     clientList.append(client.getUsername())
             self.send({"requestType":"getOnlineUsers","onlineUsers":clientList})
         
-
-            
-        if self.pendingClient:
+        if self.pendingClient != None:
             if self.pendingClient.checkIfAccepted():
                     self.send({"requestType":"battleConfirm","battleAccepted":True,"enemyU":self.pendingClient.getUsername()})
+                    self.pendingClient.send({"requestType":"battleConfirm","battleAccepted":True,"enemyU":self.username})
                     self.battleAccepted = True
                     self.clientLog("creating battle")
-                    battle = Battle(self.pendingClient,self) #starts battle
+                    startBattle(self.pendingClient,self) #starts battle
+
+
+        return True
                 
     def checkIfAccepted(self):
         return self.battleAccepted
@@ -185,15 +177,17 @@ class Client:
 
     def main(self):
         print("client initialised. beginning main loop",self.addr)
-        if self.loggedIn != True: #TODO while loop?
+        if self.loggedIn != True: 
             self.login()
         while self.loggedIn and self.connected:
-            self.requestHandler()
+            self.connected = self.requestHandler()
+        
+        self.disconnect()
 
 
     def disconnect(self):
             self.connected = False
-            self.clientLog(self.addr+" client disconnected")
+            self.clientLog([self.addr,"client disconnected"])
             self.user.close()
             clients.remove(self)
             self.loggedIn =  False
@@ -238,15 +232,10 @@ class Client:
             self.connected = True
             return True
 
-                #pass
 
 
-    # def send(self,data):
-    #     #takes in dict as data, jason encodes, and sends
-    #     self.user.send(str.encode(data))
-    #     self.reply = ""
-
-            
+    def sendPos(self,data):
+        self.send(data)      
  
     def getPos(self):
         if self.click != None:
@@ -261,7 +250,13 @@ class Client:
 
 
 
+def startBattle(client1,client2):
+    battle = Battle(client1,client2)
+    battleThread = threading.Thread(target=battle.sendPos())
+    battleThread.start()
 
+    battles.append(battle)
+    battle = None
 
 
 class Battle:
@@ -274,17 +269,16 @@ class Battle:
         self.width = 120
         self.height = 240
 
-        battlethread = threading.Thread(target=self.sendPos, args=(self.client1,self.client2))
-        battlethread.start()
+        
 
 
 
 
 
-    def sendPos(self,p1,p2):
-        while p1.isconnected() == True and p2.isconnected() == True:
-            data1 = p1.getPos()
-            data2 = p2.getPos()
+    def sendPos(self):
+        while self.client1.isconnected() == True and self.client2.isconnected() == True:
+            data1 = self.client1.getPos()
+            data2 = self.client2.getPos()
             
             if "clickPos" in data1:
                 data2["reduceHp"] = self.checkClick(data1,data2)
@@ -292,8 +286,8 @@ class Battle:
                 data1["reduceHp"] = self.checkClick(data2,data1)
                 
 
-            p2.send(data1)
-            p1.send(data2)
+            self.client2.sendPos(data1)
+            self.client1.sendPos(data2)
 
     def checkClick(self,data1,data2):
         pos = data1["clickPos"]
@@ -312,7 +306,7 @@ class Battle:
     
 
 
-
+#TODO OLD
 # def battleWait():
 #     flag = False
 #     while flag == False:
@@ -324,6 +318,8 @@ class Battle:
 
 # battlestart = threading.Thread(target=battleWait)
 # battlestart.start()
+
+
 while True:
     user, addr = s.accept()
     print("Incoming connection from:",addr)

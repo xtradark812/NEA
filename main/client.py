@@ -216,15 +216,16 @@ class Game():
                                 log("Attempting to connect to server")
                                 if self.n.connect(inputBoxes[0].text): #attempts to connect with given username (TODO add password)
                                     log("Connected, ready for battle")
+                                    self.n.startLoop("menu")
                                     button.changeText("Start Battle")
                                     
                            
 
             if self.n.isConnected():
-                enemyU = self.n.reciveRequest()
+                enemyU, startSide = self.n.pendingBattle()
                 if enemyU != None: #if a request has been recived
                     log("Loading battle")
-                    self.battle()
+                    self.battle(enemyU,startSide)
 
                     
     
@@ -257,19 +258,21 @@ class Game():
         
 
 
-    def battle(self):
+    def battle(self,enemyU,startSide):
 
 
         #initiate sprites
         all_sprites = pygame.sprite.Group()
         p = Player(50,50,0,255,0,self)
-        e = Player(50,50,255,0,0,self) #TODO: need to pick which side each player spawns on
+        e = Player(50,50,255,0,0,self) #TODO: need to pick which side each player spawns on using startside
         all_sprites.add(p)
         all_sprites.add(e)
 
         
         run = True
         log("Battle loaded")
+        self.n.startLoop("battle")
+
         while run and self.n.isConnected() and self.n.enemyConnected():
             clickPos = None
             pygame.time.delay(20)
@@ -298,9 +301,9 @@ class Game():
                 self.n.send(playerData)
 
                 #Update enemy data
-                self.n.reciveData()
                 enemyData = self.n.getEnemyData()
-                e.dataUpdate(enemyData)
+                if enemyData != None:   
+                    e.dataUpdate(enemyData)
 
             except Exception as exc:
                 #TODO check when this happens
