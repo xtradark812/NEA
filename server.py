@@ -81,7 +81,7 @@ class Client:
         try:
             data = self.user.recv(self.BUFSIZ).decode("utf8")
             if not data:
-                self.disconnect()
+                return {"requestType":"clientDisconnect"}
             else:
 
                 # #this part of the function will fix broken pakets.
@@ -128,7 +128,10 @@ class Client:
                     startBattle(self.pendingClient,self) #starts battle
         
         data = self.recive() 
-        if data == None or data["requestType"] == "error":
+        if data["requestType"] == "clientDisconnect":
+            return False
+        
+        if data["requestType"] == "error":
             self.ecounter +=1
         else:
             self.ecounter = 0 
@@ -188,10 +191,10 @@ class Client:
 
 
     def disconnect(self):
+            clients.remove(self)
             self.connected = False
             self.clientLog([self.addr,"client disconnected"])
             self.user.close()
-            clients.remove(self)
             self.loggedIn =  False
             self.username = None
             self.enemyUsername = None
@@ -288,7 +291,10 @@ class Battle:
 
             self.client2.sendPos(data1)
             self.client1.sendPos(data2)
+        
+        self.endBattle()
 
+    
     def checkClick(self,data1,data2):
         pos = data1["clickPos"]
         print(pos)
@@ -302,7 +308,9 @@ class Battle:
         else:
             return 0
 
-        
+    def endBattle(self):
+        pass
+        #send enemy disconnect to all connected clients
     
 
 

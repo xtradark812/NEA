@@ -1,5 +1,5 @@
 import pygame
-
+import os
 class Button:
     def __init__(self, text, x, y, color):
         self.text = text
@@ -70,4 +70,12 @@ class InputBox:
         screen.blit(self.txt_surface, (self.rect.x+5, self.rect.y+5))
         # Blit the rect.
         pygame.draw.rect(screen, self.color, self.rect, 2)
+
+class Textures:
+    def __init__(self):
+        self.background = pygame.image.load(os.path.join("textures", "background.png"))
+
+    def getBackground(self):
+        return self.background
+
 

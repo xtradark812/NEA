@@ -13,8 +13,8 @@ import sys
 
 import threading
 
-from ui import Button 
-from ui import InputBox
+from ui import Button, InputBox, Textures
+
 from client_network import Network
 
 def log(event):
@@ -164,6 +164,8 @@ class Game():
         self.width = 1280
         self.height = 720
         
+        self.texture = Textures()
+
         self.win = pygame.display.set_mode((self.width,self.height))
         pygame.display.set_caption("Client")
         log("Game initialized")
@@ -235,6 +237,8 @@ class Game():
 
             #Draw Menu screen
             self.win.fill((255,255,255))
+            self.win.blit(self.texture.getBackground(), (0, 0))
+
             font = pygame.font.Font('freesansbold.ttf',115)
             textSurface = font.render('project-steel', True, (0,0,0))
             TextRect = textSurface.get_rect()
