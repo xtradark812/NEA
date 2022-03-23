@@ -4,6 +4,7 @@ import socket
 import threading
 import json
 import sqlite3
+from ui import OnlineList
 
 
 
@@ -52,10 +53,18 @@ class Database():
         self.con.commit()
 
     def getAcsess(self,username): #TODO
-        pass
+        self.cursor.execute("SELECT acsess FROM users WHERE user_name = (?)",username) #TODO test this
+        data = self.cursor.fetchall()
 
-    def checkCredintials(self,username,password): #TODO
-        pass
+    def checkCredintials(self,username,password):
+        self.cursor.execute("SELECT user_name, password FROM users")
+        data = self.cursor.fetchall()
+        for user in data:
+
+            if user[0] == username and user[1] == password:
+                return True
+        return False
+
 
     
 class Client:
@@ -64,6 +73,7 @@ class Client:
         self.addr = addr
         self.clientLog("initializing user "+"%s:%s" % addr)
 
+        
 
         self.connected = False
         self.BUFSIZ = 1024
@@ -98,7 +108,7 @@ class Client:
     def send(self,data):
         try:
             serialized_data = json.dumps(data) #serialize data
-            self.user.sendall(bytes(serialized_data, "utf8")) ### SENDS LOGIN DATA TO SERVER [loginRequest,username]
+            self.user.sendall(bytes(serialized_data, "utf8"))
         except Exception as e:
             self.clientLog("send error",e)
 
@@ -133,7 +143,11 @@ class Client:
                 #     return tryAgain
                 
                 response, index = decoder.raw_decode(data) ### WAITS FOR DATA TO BE RETURNED
-                return response
+                if response != None:
+                    return response
+                else:
+                    log("error: No data recived")
+                    return {"requestType":None}
             
         except socket.timeout:
             return {"requestType":"error","error":"socketTimeout"}
@@ -237,32 +251,24 @@ class Client:
     def login(self): #pulled from previous messaging project
         #Then wait for login
         loginData = self.recive()
-
-        if loginData["requestType"] == "loginRequest":
+        db = Database()
+        if loginData["requestType"] == "loginRequest" and loginData["username"]!= "" and loginData["username"] not in [client.username for client in clients]: #Makes sure username is not blank or already connected
             username = loginData["username"]
-            
-            #TODO CHECK PASSWORD WITH DATABASE
-            
-            #password = data["password"]
-            #if username in clients.keys():
-            #    loginReq = json.dumps({"requestType":"loginRequest","loginR":False,"reason":"Already logged in"})
-            #    client.send(bytes(loginReq, "utf8")) #add excpetion whch logs out old user
-            #    return False
-            #else:
-                #database lookup here!
-                #if username and pass dont mach
-                    #loginReq = json.dumps({"requestType":"loginRequest","loginR":False,"reason":"Invalid username/password"})
-                    #client.send(bytes(loginReq, "utf8"))
-                    #return False
-                #elseif username and pass mach
-            
-            loginReq = {"requestType":"loginRequest","loginR":True}
-            self.send(loginReq)
-            self.clientLog("confirmed login: "+username+" at"+"%s:%s" % self.addr)
-            self.username = username
-            self.loggedIn = True
-            self.connected = True
-            return True
+            password = loginData["password"]
+
+            if db.checkCredintials(username,password):
+                loginReq = {"requestType":"loginRequest","loginR":True}
+                self.send(loginReq)
+                self.clientLog("confirmed login: "+username+" at"+"%s:%s" % self.addr)
+                self.username = username
+                self.loggedIn = True
+                self.connected = True
+                return True
+            else:
+                loginReq = {"requestType":"loginRequest","loginR":False,"reason":"Invalid username/password"}
+                self.send(loginReq)
+                return False
+
 
 
 
@@ -354,7 +360,6 @@ class Battle:
 # battlestart = threading.Thread(target=battleWait)
 # battlestart.start()
 
-database = Database()
 
 while True:
     user, addr = s.accept()

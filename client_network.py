@@ -26,7 +26,12 @@ class Network(): #TODO reciving should be done outside of the network
         self.requestedEnemy = None
         self.username = None #If username is none, user is not logged in
         self.reduceHp = None
+
         self.menu = False
+        self.battle = False
+
+        self.pendingBattle = False
+        self.pendingEnemy = None
 
 
     def send(self,data):
@@ -65,13 +70,17 @@ class Network(): #TODO reciving should be done outside of the network
                 
 
                 response, index = decoder.raw_decode(finalData) ### WAITS FOR DATA TO BE RETURNED
-                return response
+                if response != None:
+                    return response
+                else:
+                    log("error: No data recived")
+                    return {"requestType":None}
 
         except socket.timeout:
             return {"requestType":None}
 
         except Exception as e:
-            print("error",e)
+            log("error",e)
             return {"requestType":None}
         
         
@@ -102,38 +111,46 @@ class Network(): #TODO reciving should be done outside of the network
         if loop == "menu":
             log("Starting menu loop")
             self.menu = True
-            menuThread = threading.Thread(target=self.reciveRequest)
+            menuThread = threading.Thread(target=self.menuLoop)
             menuThread.start()
 
         elif loop == "battle":
             log("Starting battle loop")
-            self.menu = True
-            battleThread = threading.Thread(target=self.reciveData)
+            self.battle = True
+            battleThread = threading.Thread(target=self.battleLoop)
             battleThread.start()
 
     def getOnlineUsers(self):
         self.send({"requestType":"getOnlineUsers"})
+        for user in self.onlineUsers:
+            if user == self.username:
+                self.onlineUsers.remove(user)
         return self.onlineUsers
 
-    def reciveRequest(self):
+    def menuLoop(self):
         while self.menu:
             response = self.recive()
-
-            if response["requestType"]=="battleReq":
-                log("Battle request recived, accepting...")
-                self.acceptBattle(response["enemyU"]) #TODO this atomatically accepts battle request, should be in game loop
-            elif response["requestType"] == "battleConfirm" and response["battleAccepted"] == True:
-                log("Starting battle")
-                self.enemyUsername = response["enemyU"]
-                self.menu = False
-            elif response["requestType"] == "getOnlineUsers":
-                self.onlineUsers = response["onlineUsers"]
+            if response != None:
+                if response["requestType"]=="battleReq":
+                    log("Battle request recived...")
+                    self.pendingEnemy = response["enemyU"]
+                    self.pendingBattle = True
+                elif response["requestType"] == "battleConfirm" and response["battleAccepted"] == True:
+                    log("Starting battle")
+                    self.enemyUsername = response["enemyU"]
+                    self.menu = False
+                elif response["requestType"] == "getOnlineUsers":
+                    self.onlineUsers = response["onlineUsers"]
 
         return None
+    def checkPendingBattle(self):
+        return self.pendingBattle
 
-    def pendingBattle(self):
+    def checkPendingEnemy(self):
+        return self.pendingEnemy
+
+    def getEnemyStartside(self):
         if self.enemyUsername != None:
-            log("battle pending")
             return self.enemyUsername, 0 #TODO pick a side
         else:
             return None, None
@@ -175,16 +192,16 @@ class Network(): #TODO reciving should be done outside of the network
             return False
 
     
-    def acceptBattle(self,enemyU):
+    def acceptBattle(self):
         log("Accepting battle")
-        self.requestedEnemy = enemyU
-        accept = {"requestType":"battleReq","battleAccepted":True,"enemyU":enemyU} 
+        self.requestedEnemy = self.pendingEnemy
+        accept = {"requestType":"battleReq","battleAccepted":True,"enemyU":self.pendingEnemy} 
         self.send(accept)
 
 
 
-    def reciveData(self):
-        while True:
+    def battleLoop(self):
+        while self.battle:
             data = self.recive()
             if data != None:
                 if data["requestType"] == "posData":
@@ -201,6 +218,7 @@ class Network(): #TODO reciving should be done outside of the network
             
             else:
                 log("error: no data")
+
             
                         
             

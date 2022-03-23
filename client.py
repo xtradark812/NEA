@@ -13,6 +13,8 @@ import sys
 
 import threading
 
+from sympy import re
+
 from ui import Button, InputBox, Textures, OnlineList
 
 from client_network import Network
@@ -189,8 +191,6 @@ class Game():
         #Menu UI
         buttons = [Button("Login",self.width/2,self.height/2+70,(0,0,0),150,100)]
         inputBoxes = [InputBox(self.width/2-30, (self.height/2)-100+25, 140, 32),InputBox(self.width/2-30, (self.height/2)-100-25, 140, 32)]
-
-
  
 
         #Menu loop
@@ -214,7 +214,7 @@ class Game():
 
                             if button.text == "Login":
                                 log("Attempting to connect to server")
-                                if self.n.connect(inputBoxes[0].text,inputBoxes[1].text): #attempts to connect with given username (TODO add password)
+                                if self.n.connect(inputBoxes[1].text,inputBoxes[0].text): #attempts to connect with given username and password)
                                     log("Connected")
                                     self.mainMenu()
 
@@ -251,7 +251,7 @@ class Game():
     def mainMenu(self):
         #Menu UI
         onlineList = OnlineList(self.width/8,70)
-        buttons = []
+        requestBox = None
         #Menu loop
         self.n.startLoop("menu")
         onlineUsers = self.n.getOnlineUsers()
@@ -269,11 +269,16 @@ class Game():
 
                 if event.type == pygame.MOUSEBUTTONDOWN: #handle button events
 
-                    self.n.getOnlineUsers()  #TODO refresh button?
+                    onlineUsers = self.n.getOnlineUsers()
+
                     onlineList.updateUsers(onlineUsers)
                     
                     pos = pygame.mouse.get_pos()
-
+                    
+                    if requestBox != None:
+                        if requestBox.click(pos):
+                            self.n.acceptBattle() 
+                            
                     eRequest = onlineList.click(pos)
                     if eRequest != None and self.n.isConnected():
 
@@ -286,10 +291,13 @@ class Game():
                            
 
             if self.n.isConnected():
-                enemyU, startSide = self.n.pendingBattle()
+                if self.n.checkPendingBattle() == True:
+                    requestBox = Button("Battle request from: "+ self.n.checkPendingEnemy(),900,600,(256,0,0),300,100)
+                enemyU, startSide = self.n.getEnemyStartside()
                 if enemyU != None: #if a request has been recived
                     log("Loading battle")
                     self.battle(enemyU,startSide)
+
 
                     
     
@@ -310,9 +318,9 @@ class Game():
             self.win.blit(textSurface, TextRect)
 
 
-            #Draw Buttons
-            for button in buttons:
-                button.draw(self.win)
+            #Draw reuqests
+            if requestBox != None:
+                requestBox.draw(self.win)
 
 
             #Draw online list
