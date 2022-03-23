@@ -1,13 +1,15 @@
 import pygame
 import os
 class Button:
-    def __init__(self, text, x, y, color):
+    def __init__(self, text, midx, midy, color,width,height):
         self.text = text
-        self.x = x
-        self.y = y
+
         self.color = color
-        self.width = 150
-        self.height = 100
+        self.width = width
+        self.height = height
+
+        self.x = midx-(self.width/2)
+        self.y = midy-(self.height/2)
 
     def draw(self, win):
         pygame.draw.rect(win, self.color, (self.x, self.y, self.width, self.height))
@@ -26,15 +28,41 @@ class Button:
     def changeText(self,text):
         self.text = text
 
+class OnlineList():
+    def __init__(self,x,y):
+        self.x = x
+        self.y = y
+        self.buttons = []
+
+    def updateUsers(self,users):
+        self.buttons = []
+        listSpace = 15
+        for user in users:
+            self.buttons.append(Button(user,self.x,self.y+listSpace,(0,0,0),100,30))
+            listSpace+= 45
+
+    def click(self,pos):
+        for button in self.buttons:
+            if button.click(pos):
+                return button.text
+        return None
+            
+
+    def draw(self,win):
+        for button in self.buttons:
+            button.draw(win)
+
+
+
 class InputBox:
 
     def __init__(self, x, y, w, h, text=''):
         self.COLOR_INACTIVE = pygame.Color('lightskyblue3')
         self.COLOR_ACTIVE = pygame.Color('dodgerblue2')
-        self.rect = pygame.Rect(x, y, w, h)
+        self.rect = pygame.Rect(x-(w/2), y, w, h)
         self.color = self.COLOR_INACTIVE
         self.text = text
-        self.font = font = pygame.font.Font('freesansbold.ttf',115)
+        self.font = font = pygame.font.Font('freesansbold.ttf',30)
         self.txt_surface = self.font.render(text, True, self.color)
         self.active = False
 
@@ -72,8 +100,9 @@ class InputBox:
         pygame.draw.rect(screen, self.color, self.rect, 2)
 
 class Textures:
-    def __init__(self):
+    def __init__(self,width,height): #TODO recive acsess in this method and load proper textures
         self.background = pygame.image.load(os.path.join("textures", "background.png"))
+        self.background = pygame.transform.scale(self.background, (width, height))
 
     def getBackground(self):
         return self.background

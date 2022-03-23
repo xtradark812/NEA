@@ -1,26 +1,31 @@
-#HAVE CLIENT ALWAYS RECIVE THINGS, AND ITS ABLE TO CHECK WHATS BEING RECIVED WITH START THRED
-#REDUCE THE AMMOUNT OF THREADS
+
 from json.decoder import JSONDecoder
 import socket
 import threading
-import sys
 import json
-import pickle
+import sqlite3
+
+
+
+#Set up TCP connection
 server = "127.0.0.1"
 port = 5555
-
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
 
 clients = []
 battles = []
 
-def log(event,e=None):
+
+def log(event,e=None): #Log function for debugging
     if e != None:
         print("ERROR |", event, e )
     else:
         print("log:", event)
-    #TODO save to file
+    #Possibly save to file?
 
+
+#Start server
 try:
     s.bind((server,port))
     s.listen(2)
@@ -30,7 +35,29 @@ except socket.error as e:
     log("error connecting",e)
 
 
+class Database():
+    def __init__(self):
+        self.con = sqlite3.connect('database.db')
+        self.cursor = self.con.cursor()
 
+        self.initDatabase()
+    
+    def initDatabase(self):
+        self.cursor.execute('''CREATE TABLE IF NOT EXISTS users
+               (user_name text NOT NULL, password text, acsess text)''')
+
+
+    def createUser(self,username,password,acsess):
+        self.cursor.execute("INSERT INTO users VALUES (?,?,?)",[username,password,acsess])
+        self.con.commit()
+
+    def getAcsess(self,username): #TODO
+        pass
+
+    def checkCredintials(self,username,password): #TODO
+        pass
+
+    
 class Client:
     def __init__(self,user,addr):
         self.user = user
@@ -327,6 +354,7 @@ class Battle:
 # battlestart = threading.Thread(target=battleWait)
 # battlestart.start()
 
+database = Database()
 
 while True:
     user, addr = s.accept()

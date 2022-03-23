@@ -76,7 +76,7 @@ class Network(): #TODO reciving should be done outside of the network
         
         
 
-    def connect(self,username): #Connects to the server and attempts to login. Returns true if logged in.
+    def connect(self,username,password): #Connects to the server and attempts to login. Returns true if logged in.
         log("Attempting to connect to server")
         try:
             self.client.connect(self.addr)
@@ -88,7 +88,7 @@ class Network(): #TODO reciving should be done outside of the network
             return False
 
         log("Attempting login")
-        self.username = self.login(username)
+        self.username = self.login(username,password)
 
         if self.username == None:
             log("Login failed")
@@ -113,6 +113,7 @@ class Network(): #TODO reciving should be done outside of the network
 
     def getOnlineUsers(self):
         self.send({"requestType":"getOnlineUsers"})
+        return self.onlineUsers
 
     def reciveRequest(self):
         while self.menu:
@@ -153,9 +154,9 @@ class Network(): #TODO reciving should be done outside of the network
 
                     
             
-    def login(self,username): #function pulled from previous messaging project
+    def login(self,username,password): #function pulled from previous messaging project
 
-        loginReq = {"requestType":"loginRequest","username":username}
+        loginReq = {"requestType":"loginRequest","username":username,"password":password}
 
         self.send(loginReq)
         response = self.recive()

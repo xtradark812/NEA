@@ -13,7 +13,7 @@ import sys
 
 import threading
 
-from ui import Button, InputBox, Textures
+from ui import Button, InputBox, Textures, OnlineList
 
 from client_network import Network
 
@@ -164,7 +164,7 @@ class Game():
         self.width = 1280
         self.height = 720
         
-        self.texture = Textures()
+        self.texture = Textures(self.width,self.height)
 
         self.win = pygame.display.set_mode((self.width,self.height))
         pygame.display.set_caption("Client")
@@ -185,20 +185,23 @@ class Game():
     def renderUI(self):
         pass #TODO use this method to render HP bar
     
-    def mainMenu(self):
+    def loginScreen(self):
         #Menu UI
-        buttons = [Button("Connect",self.width/2,self.height/2,(0,255,0))]
-        inputBoxes = [InputBox(100, 100, 140, 32),InputBox(100, 150, 140, 32)]
+        buttons = [Button("Login",self.width/2,self.height/2+70,(0,0,0),150,100)]
+        inputBoxes = [InputBox(self.width/2-30, (self.height/2)-100+25, 140, 32),InputBox(self.width/2-30, (self.height/2)-100-25, 140, 32)]
+
+
+ 
 
         #Menu loop
-        menuScreen = True
-        log("Menu loaded")
-        while menuScreen:
+        loginScreen = True
+        log("Login Screen loaded")
+        while loginScreen:
         
             for event in pygame.event.get(): #Event handler
 
                 if event.type == pygame.QUIT: 
-                    menuScreen = self.exit()
+                    loginScreen = self.exit()
                     break
                 
                 for box in inputBoxes: 
@@ -208,18 +211,77 @@ class Game():
                     pos = pygame.mouse.get_pos()
                     for button in buttons:
                         if button.click(pos): #if a button is clicled chech which one
-                            
-                            if button.text == "Start Battle" and self.n.isConnected(): #TODO Check if username is blank
-                                self.n.getOnlineUsers()
-                                log("Attempting to start battle")
-                                self.n.sendBattleReq(inputBoxes[1].text)
-                                
-                            if button.text == "Connect":
+
+                            if button.text == "Login":
                                 log("Attempting to connect to server")
-                                if self.n.connect(inputBoxes[0].text): #attempts to connect with given username (TODO add password)
-                                    log("Connected, ready for battle")
-                                    self.n.startLoop("menu")
-                                    button.changeText("Start Battle")
+                                if self.n.connect(inputBoxes[0].text,inputBoxes[1].text): #attempts to connect with given username (TODO add password)
+                                    log("Connected")
+                                    self.mainMenu()
+
+                                    
+            #Draw Login screen
+            self.win.fill((255,255,255))
+            self.win.blit(self.texture.getBackground(), (0, 0))
+
+            font = pygame.font.Font('freesansbold.ttf',115)
+            textSurface = font.render('Login', True, (0,0,0))
+            TextRect = textSurface.get_rect()
+            TextRect.center = ((self.width/2),(self.height/6))
+            self.win.blit(textSurface, TextRect)
+
+            #Update input boxes
+            for box in inputBoxes:
+                box.update()
+
+            #Draw Buttons
+            for button in buttons:
+                button.draw(self.win)
+
+            #Draw input boxes
+            for box in inputBoxes:
+                box.draw(self.win)
+            
+
+
+
+            #Update Display
+            pygame.display.update()
+
+
+    def mainMenu(self):
+        #Menu UI
+        onlineList = OnlineList(self.width/8,70)
+        buttons = []
+        #Menu loop
+        self.n.startLoop("menu")
+        onlineUsers = self.n.getOnlineUsers()
+        onlineList.updateUsers(onlineUsers)
+        menuScreen = True
+        log("Menu loaded")
+        while menuScreen:
+        
+            for event in pygame.event.get(): #Event handler
+
+                if event.type == pygame.QUIT: 
+                    menuScreen = self.exit()
+                    break
+    
+
+                if event.type == pygame.MOUSEBUTTONDOWN: #handle button events
+
+                    self.n.getOnlineUsers()  #TODO refresh button?
+                    onlineList.updateUsers(onlineUsers)
+                    
+                    pos = pygame.mouse.get_pos()
+
+                    eRequest = onlineList.click(pos)
+                    if eRequest != None and self.n.isConnected():
+
+                        log("Attempting to start battle")
+                        self.n.sendBattleReq(eRequest)
+                                
+
+
                                     
                            
 
@@ -239,24 +301,23 @@ class Game():
             self.win.fill((255,255,255))
             self.win.blit(self.texture.getBackground(), (0, 0))
 
-            font = pygame.font.Font('freesansbold.ttf',115)
-            textSurface = font.render('project-steel', True, (0,0,0))
+
+            
+            font = pygame.font.Font('freesansbold.ttf',20)
+            textSurface = font.render('Online Users', True, (0,0,0))
             TextRect = textSurface.get_rect()
-            TextRect.center = ((self.width/2),(self.height/6))
+            TextRect.center = ((self.width/8),(50))
             self.win.blit(textSurface, TextRect)
 
-            #Update input boxes
-            for box in inputBoxes:
-                box.update()
 
             #Draw Buttons
             for button in buttons:
                 button.draw(self.win)
 
-            #Draw input boxes
-            for box in inputBoxes:
-                box.draw(self.win)
-                
+
+            #Draw online list
+            onlineList.draw(self.win)
+
             #Update Display
             pygame.display.update()
         
@@ -325,4 +386,4 @@ class Game():
 
 
 g = Game()
-g.mainMenu()
+g.loginScreen()
