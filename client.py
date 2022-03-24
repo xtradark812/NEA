@@ -166,7 +166,7 @@ class Game():
         self.width = 1280
         self.height = 720
         
-        self.texture = Textures(self.width,self.height)
+        self.textureObject = Textures(self.width,self.height)
 
         self.win = pygame.display.set_mode((self.width,self.height))
         pygame.display.set_caption("Client")
@@ -216,12 +216,14 @@ class Game():
                                 log("Attempting to connect to server")
                                 if self.n.connect(inputBoxes[1].text,inputBoxes[0].text): #attempts to connect with given username and password)
                                     log("Connected")
+                                    self.acsess = self.n.getAcsess()
                                     self.mainMenu()
 
                                     
             #Draw Login screen
             self.win.fill((255,255,255))
-            self.win.blit(self.texture.getBackground(), (0, 0))
+            background = self.textureObject.getLoginBackground()
+            self.win.blit(background,(0, 0))
 
             font = pygame.font.Font('freesansbold.ttf',115)
             textSurface = font.render('Login', True, (0,0,0))
@@ -250,6 +252,8 @@ class Game():
 
     def mainMenu(self):
         #Menu UI
+        self.textures = self.texture.loadTextures(self.acsess)
+        
         onlineList = OnlineList(self.width/8,70)
         requestBox = None
         #Menu loop
@@ -257,6 +261,8 @@ class Game():
         onlineUsers = self.n.getOnlineUsers()
         onlineList.updateUsers(onlineUsers)
         menuScreen = True
+
+
         log("Menu loaded")
         while menuScreen:
         
@@ -307,7 +313,7 @@ class Game():
 
             #Draw Menu screen
             self.win.fill((255,255,255))
-            self.win.blit(self.texture.getBackground(), (0, 0))
+            self.win.blit(self.textures["background"], (0, 0))
 
 
             

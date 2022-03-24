@@ -1,9 +1,12 @@
 
 from json.decoder import JSONDecoder
+from re import U
 import socket
 import threading
 import json
 import sqlite3
+
+from sympy import acsc
 from ui import OnlineList
 
 
@@ -47,14 +50,25 @@ class Database():
         self.cursor.execute('''CREATE TABLE IF NOT EXISTS users
                (user_name text NOT NULL, password text, acsess text)''')
 
+        self.cursor.execute('''CREATE TABLE IF NOT EXISTS acsessTextures
+               (acsess text NOT NULL, serializedData text)''')
+
+        self.createAcsess("test",json.dumps({"standing":"","enemyStanding":"","background":"background01","crouching":"","enemyCrouching":"","walking":"","enemyWalking":"","jumping":"","enemyJumping":""}))
 
     def createUser(self,username,password,acsess):
         self.cursor.execute("INSERT INTO users VALUES (?,?,?)",[username,password,acsess])
         self.con.commit()
+    
+    def createAcsess(self,name,data):
+        self.cursor.execute("INSERT INTO acsessTextures VALUES (?,?)",[name,data])
+        self.con.commit()
 
     def getAcsess(self,username): #TODO
-        self.cursor.execute("SELECT acsess FROM users WHERE user_name = (?)",username) #TODO test this
-        data = self.cursor.fetchall()
+        self.cursor.execute("SELECT serializedData FROM acsessTextures, users WHERE users.acsess = acsessTextures.acsess AND user.user_name = (?)",username)
+        serializedData = self.cursor.fetchall()
+        return serializedData
+    
+        
 
     def checkCredintials(self,username,password):
         self.cursor.execute("SELECT user_name, password FROM users")
@@ -64,6 +78,9 @@ class Database():
             if user[0] == username and user[1] == password:
                 return True
         return False
+
+    def close(self):
+        pass
 
 
     
@@ -208,7 +225,6 @@ class Client:
             self.send({"requestType":"getOnlineUsers","onlineUsers":clientList})
 
 
-
         return True
                 
     def checkIfAccepted(self):
@@ -257,12 +273,16 @@ class Client:
             password = loginData["password"]
 
             if db.checkCredintials(username,password):
-                loginReq = {"requestType":"loginRequest","loginR":True}
+                acsess = db.getAcsess(username)
+
+                loginReq = {"requestType":"loginRequest","loginR":True,"acsess":acsess}
                 self.send(loginReq)
                 self.clientLog("confirmed login: "+username+" at"+"%s:%s" % self.addr)
                 self.username = username
                 self.loggedIn = True
                 self.connected = True
+                
+                db.close()
                 return True
             else:
                 loginReq = {"requestType":"loginRequest","loginR":False,"reason":"Invalid username/password"}

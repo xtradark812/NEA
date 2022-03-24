@@ -20,6 +20,8 @@ class Network(): #TODO reciving should be done outside of the network
         self.addr = (self.server,self.port)
         self.BUFSIZ = 1024
         self.connected = False
+        self.username = None
+        self.acsess = None
         self.enemyUsername = None
         self.enemyData = None
         self.onlineUsers = []
@@ -97,7 +99,7 @@ class Network(): #TODO reciving should be done outside of the network
             return False
 
         log("Attempting login")
-        self.username = self.login(username,password)
+        self.username,self.acsess = self.login(username,password)
 
         if self.username == None:
             log("Login failed")
@@ -180,10 +182,10 @@ class Network(): #TODO reciving should be done outside of the network
 
         if response["requestType"]=="loginRequest" and response["loginR"]==True: 
             log("Server accepted login response")
-            return username
+            return username, response["acsess"]
         
         else:
-            return None
+            return None, None
 
     def enemyConnected(self):
         if self.enemyUsername != None:
@@ -219,9 +221,9 @@ class Network(): #TODO reciving should be done outside of the network
             else:
                 log("error: no data")
 
-            
-                        
-            
+
+    def getAcsess(self):
+        return json.loads(self.acsess)
 
     def getEnemyData(self):
         if self.reduceHp != None:

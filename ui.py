@@ -101,10 +101,20 @@ class InputBox:
 
 class Textures:
     def __init__(self,width,height): #TODO recive acsess in this method and load proper textures
-        self.background = pygame.image.load(os.path.join("textures", "background.png"))
-        self.background = pygame.transform.scale(self.background, (width, height))
+        self.loginBackground = pygame.image.load(os.path.join("textures", "background.png"))
+        self.loginBackground = pygame.transform.scale(self.loginBackground,(width, height))
 
-    def getBackground(self):
-        return self.background
+    def getLoginBackground(self):
+        return self.loginBackground
 
+    def loadTextures(self,acsess):
+        textures = ["standing","enemyStanding","background","crouching","enemyCrouching","walking","enemyWalking","jumping","enemyJumping"]
+        loadedTextures = {}
+        
+        for texture in textures:
+            try:
+                loadedTextures[texture] = pygame.image.load(os.path.join("textures", acsess[texture]+".png"))
+            except KeyError:
+                print("texture not found: ",texture)
 
+        return loadedTextures
