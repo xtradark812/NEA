@@ -45,8 +45,29 @@ class Network():
         try:
             data = self.client.recv(self.BUFSIZ).decode("utf8")
             if not data or data == None:
-                self.connected = False
-                print("disconnected")
+                return {"requestType":None}
+            else:
+
+                response, index = decoder.raw_decode(data) ### WAITS FOR DATA TO BE RETURNED
+                if response != None:
+                    return response
+                else:
+                    log("error: No data recived")
+                    return {"requestType":None}
+
+        except socket.timeout:
+            return {"requestType":None}
+
+        except Exception as e:
+            log("error",e)
+            return {"requestType":None}
+
+    def battleRecive(self):
+        decoder = JSONDecoder()
+        try:
+            data = self.client.recv(self.BUFSIZ).decode("utf8")
+            if not data or data == None:
+                return {"requestType":None}
             else:
                 #this part of the function will fix broken pakets.
                 #when the client tries to send hundreds of json objects a seccond, sometimes the objects get stuck together
@@ -69,7 +90,6 @@ class Network():
                     tryAgain = self.recive()
                     return tryAgain
                 
-
                 response, index = decoder.raw_decode(finalData) ### WAITS FOR DATA TO BE RETURNED
                 if response != None:
                     return response
@@ -85,12 +105,12 @@ class Network():
             return {"requestType":None}
         
         
+        
 
     def connect(self,username,password): #Connects to the server and attempts to login. Returns true if logged in.
         log("Attempting to connect to server")
         try:
             self.client.connect(self.addr)
-            self.client.settimeout(.5)
             self.connected = True
             log("Sucsessfully connected to server")
         except Exception as e:
@@ -106,6 +126,7 @@ class Network():
         elif self.username != None:
             log("Login sucsessful, gathering online users")
             self.getOnlineUsers()
+            self.client.settimeout(.5)
             return True
 
     def startLoop(self,loop):
@@ -178,11 +199,12 @@ class Network():
 
         self.send(loginReq)
         response = self.recive()
-
+        print(response)
+        if response == None or type(response) != dict:
+            return None, None
         if response["requestType"]=="loginRequest" and response["loginR"]==True: 
             log("Server accepted login response")
             return username, response["acsess"]
-        
         else:
             return None, None
 
@@ -203,8 +225,8 @@ class Network():
 
     def battleLoop(self):
         while self.battle:
-            data = self.recive()
-            if data != None:
+            data = self.battleRecive()
+            if data != None and type(data) == dict:
                 if data["requestType"] == "posData":
                     if "reduceHp" in data:  #game loop might fetch pos data and miss this data, so it is stored in network as variables 
                         if self.reduceHp != None:

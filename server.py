@@ -6,7 +6,6 @@ import threading
 import json
 import sqlite3
 
-from sympy import acsc
 from ui import OnlineList
 
 
@@ -64,14 +63,11 @@ class Database():
         self.con.commit()
 
     def getAcsess(self,username): #TODO
-        # self.cursor.execute("SELECT acsessTextures.serializedData, acsessTextures.acsess, users.user_name, users.acsess FROM acsessTextures INNER JOIN users WHERE users.acsess = acsessTextures.acsess AND users.user_name = (?)",username)
-        self.cursor.execute("SELECT acsessTextures.serializedData, acsessTextures.acsess, users.user_name, users.acsess FROM acsessTextures INNER JOIN users")
+        self.cursor.execute("SELECT acsessTextures.serializedData FROM acsessTextures INNER JOIN users WHERE users.acsess = acsessTextures.acsess AND users.user_name = (?)",[username])
 
-        serializedData = self.cursor.fetchall()
-        
-        print(serializedData)
-        print(json.loads(serializedData))
-        return serializedData
+        serializedData = self.cursor.fetchone()
+
+        return serializedData[0]
     
         
 
@@ -115,6 +111,8 @@ class Client:
         self.x = 0
         self.y = 0 
         self.click = None
+        self.state = "standing"
+        self.orientation = "R" #TODO change depending on side
 
         mainThread = threading.Thread(target=self.main)
         mainThread.start()
@@ -207,6 +205,8 @@ class Client:
             if data["requestType"] == "posData":
                 self.x = data["x"]
                 self.y = data["y"]
+                self.state = data["state"]
+                self.orientation = data["orientation"]
                 if "clickPos" in data:
                     self.click = data["clickPos"]
         elif self.battleSent == True and self.battleAccepted == False:
@@ -301,11 +301,11 @@ class Client:
  
     def getPos(self):
         if self.click != None:
-            data = {"requestType":"posData","x":self.x,"y":self.y,"clickPos":self.click}
+            data = {"requestType":"posData","x":self.x,"y":self.y,"clickPos":self.click,"state":self.state,"orientation":self.orientation}
             self.click = None
             return data
         else:
-            return {"requestType":"posData","x":self.x,"y":self.y}
+            return {"requestType":"posData","x":self.x,"y":self.y,"state":self.state,"orientation":self.orientation}
 
     def getUsername(self):
         return self.username
@@ -319,7 +319,7 @@ def startBattle(client1,client2):
 
 class Battle:
     def __init__(self,client1,client2):
-        print("2 players connected. initializing battle.")
+        print("initializing battle.")
         #TODO server decides whos on which side
         self.client1 = client1
         self.client2 = client2
@@ -359,11 +359,17 @@ class Battle:
         y1 = pos[1]
         x = data2["x"]
         y = data2["y"]
-        if  x-(self.width/2) <= x1 <= x + (self.width/2) and y-(self.height/2) <= y1 <= y + (self.height/2):
-            print("hit!")
-            return 10
-        else:
-            return 0
+        state = data2["state"]
+        if state != "crouching":
+            if  x-(self.width/2) <= x1 <= x + (self.width/2) and y-(self.height/2) <= y1 <= y + (self.height/2):
+                return 10
+            else:
+                return 0
+        if state == "crouching":
+            if  x-(self.width/2) <= x1 <= x + (self.width/2) and y-((self.height/2)/2) <= y1 <= y + ((self.height/2)/2):
+                return 10
+            else:
+                return 0
 
     def endBattle(self):
         pass

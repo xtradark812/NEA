@@ -101,6 +101,8 @@ class InputBox:
 
 class Textures:
     def __init__(self,width,height): #TODO recive acsess in this method and load proper textures
+        self.width = width
+        self.height = height
         self.loginBackground = pygame.image.load(os.path.join("textures", "background.png"))
         self.loginBackground = pygame.transform.scale(self.loginBackground,(width, height))
 
@@ -108,13 +110,39 @@ class Textures:
         return self.loginBackground
 
     def loadTextures(self,acsess):
-        textures = ["standing","enemyStanding","background","crouching","enemyCrouching","walking","enemyWalking","jumping","enemyJumping"]
+        textures = ["standing","enemyStanding","background","crouching","enemyCrouching","jumping","enemyJumping"]
+        animations = ["walking","enemyWalking"]
         loadedTextures = {}
-        
+        loadedAnimations = {}
+
         for texture in textures:
             try:
                 loadedTextures[texture] = pygame.image.load(os.path.join("textures", acsess[texture]+".png"))
-            except KeyError:
+            except:
                 print("texture not found: ",texture)
+        
+        for animation in animations:
+            loadedAnimations[animation] = []
+            for i in range(4):#animations will always have 4 images
+                loadedAnimations[animation].append(pygame.image.load(os.path.join("textures",acsess[animation], str(i)+".gif")))
 
-        return loadedTextures
+        
+        #RESIZE 
+        try:
+            loadedTextures["background"] = pygame.transform.scale(loadedTextures["background"],(self.width, self.height))
+        except:
+            print("texture not found")
+        return loadedTextures, loadedAnimations
+
+class HealthBar():
+    def __init__(self,health,x,y):
+        self.health = health
+        self.x = x
+        self.y = y 
+    
+    def updateHealth(self,health):
+        self.health = health
+        
+    def draw(self,win):
+        pygame.draw.rect(win, (255,0,0), (self.x, self.y, self.health*2, 20))
+        pygame.draw.rect(win, (255,255,255), (self.x, self.y, 200, 20),2)
