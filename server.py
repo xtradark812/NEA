@@ -53,7 +53,7 @@ class Database():
         self.cursor.execute('''CREATE TABLE IF NOT EXISTS acsessTextures
                (acsess text NOT NULL, serializedData text)''')
 
-        self.createAcsess("test",json.dumps({"standing":"","enemyStanding":"","background":"background01","crouching":"","enemyCrouching":"","walking":"","enemyWalking":"","jumping":"","enemyJumping":""}))
+        #self.createAcsess("test",json.dumps({"standing":"","enemyStanding":"","background":"background01","crouching":"","enemyCrouching":"","walking":"","enemyWalking":"","jumping":"","enemyJumping":""}))
 
     def createUser(self,username,password,acsess):
         self.cursor.execute("INSERT INTO users VALUES (?,?,?)",[username,password,acsess])
@@ -64,8 +64,13 @@ class Database():
         self.con.commit()
 
     def getAcsess(self,username): #TODO
-        self.cursor.execute("SELECT serializedData FROM acsessTextures, users WHERE users.acsess = acsessTextures.acsess AND user.user_name = (?)",username)
+        # self.cursor.execute("SELECT acsessTextures.serializedData, acsessTextures.acsess, users.user_name, users.acsess FROM acsessTextures INNER JOIN users WHERE users.acsess = acsessTextures.acsess AND users.user_name = (?)",username)
+        self.cursor.execute("SELECT acsessTextures.serializedData, acsessTextures.acsess, users.user_name, users.acsess FROM acsessTextures INNER JOIN users")
+
         serializedData = self.cursor.fetchall()
+        
+        print(serializedData)
+        print(json.loads(serializedData))
         return serializedData
     
         
@@ -120,7 +125,6 @@ class Client:
             print(self.addr," ERROR |", events, e )
         else:
             print(self.addr," log:", events)
-            #TODO save to file
 
     def send(self,data):
         try:

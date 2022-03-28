@@ -90,7 +90,9 @@ class Player(pygame.sprite.Sprite):
     def move(self):
         wait = 1
         keys = pygame.key.get_pressed()
-
+        #TODO CROUCH
+        #TODO add animation variable for walk
+        
         if keys[self.game.controls.left] and self.x > self.vel + self.playerWidth/2:
             self.x -= self.vel
 

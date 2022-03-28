@@ -9,9 +9,8 @@ def log(event,e=None):
         print("ERROR |", event, e )
     else:
         print("loog:", event)
-    #TODO save to file
 
-class Network(): #TODO reciving should be done outside of the network
+class Network():
     def __init__(self):
         log("Initializing network")
         self.client = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
