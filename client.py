@@ -1,11 +1,8 @@
-#MAIN TODO:
-#FIX HP SERVER SENDS
-#POSSIBLY SLOW DOWN WALK ANIMATION
-#ADD GAME OVER SCREEN WHEN ONE PLAYER WINS 
 
 
 
 from queue import Empty
+from tracemalloc import start
 from typing import Counter
 
 import pygame
@@ -20,7 +17,7 @@ from client_network import Network
 
 def log(event):
     print("log: ", event)
-    #TODO save to file
+
 
 class Controls():
     def __init__(self):
@@ -38,18 +35,25 @@ class Controls():
      
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self,x,y,r,g,b,game,cType):
+    def __init__(self,x,y,r,g,b,game,cType,startside):
         self.playerWidth = 120
         self.playerHeight = 240
         self.game = game
 
         self.state = "standing"
-        self.orientation = "R" #TODO depends on which side spawns on
+        if startside == "L":
+            self.orientation = "R" 
+        else:
+            self.orientation = "L"
 
         pygame.sprite.Sprite.__init__(self) #sprite init function (required by pygame)
-        
-        self.x = self.game.width/4 #TODO need to check which side to spawn on
-        self.y = self.game.height - 160 -self.playerHeight/2 
+
+        if startside == "L":
+            self.x = self.game.width/4
+        else:
+            self.x = self.game.width*3/4
+
+        self.y = self.game.height - 140 -self.playerHeight/2 
 
         self.color = r,g,b
 
@@ -101,7 +105,6 @@ class Player(pygame.sprite.Sprite):
     def move(self):
         wait = 1
         keys = pygame.key.get_pressed()
-        #TODO add animation variable for walk
         self.state = "standing"
 
         if keys[self.game.controls.left] and self.x > self.vel + self.playerWidth/2:
@@ -119,7 +122,7 @@ class Player(pygame.sprite.Sprite):
             self.startingY = self.y
             wait = 0
 
-        if keys[pygame.K_DOWN] and self.jumping == False: #TODO crouch
+        if keys[pygame.K_DOWN] and self.jumping == False:
             self.state = "crouching"
             pass
 
@@ -148,10 +151,6 @@ class Player(pygame.sprite.Sprite):
                 self.y += self.changeList.pop(self.changeList.index(min(self.changeList)))
 
             if self.jumpcount == 0 and not self.changeList: #once player is on the ground
-                if self.y != self.startingY:
-                    print("error")
-                    print(self.startingY-self.y)
-                    self.y = self.startingY
                 self.jumpcount = 10 #reset jump count
                 self.doubleJumps = 0
                 self.counter = 0
@@ -178,13 +177,12 @@ class Player(pygame.sprite.Sprite):
 
     
     def dataUpdate(self,data):
-        if "reduceHp" in data:
-            self.reudceHp(data["reduceHp"])
             
         self.x = data["x"]
         self.y = data["y"]
         self.state = data["state"]
         self.orientation = data["orientation"]
+        self.hp = data["hp"]
         
         if self.state == "jumping":
             self.image = self.game.textures["enemyJumping"]
@@ -205,11 +203,20 @@ class Player(pygame.sprite.Sprite):
         self.rect.center = (self.x, self.y)
 
     def getPos(self):
-        return {"requestType":"posData","x":self.x,"y":self.y,"state":self.state,"orientation":self.orientation}
+        return {"requestType":"posData","x":self.x,"y":self.y,"state":self.state,"orientation":self.orientation,"hp":self.hp}
 
 
     def getHP(self):
         return self.hp
+
+    def checkClick(self,clickpos,enemyPos):
+        if self.rect.collidepoint(clickpos):
+            #TODO check how far player is 
+            self.reudceHp(10)
+        if self.hp <= 0:
+            return False
+        else:
+            return True
 
 
 
@@ -239,10 +246,6 @@ class Game():
         all_sprites.draw(win) #DRAW SPRITES
     
 
-    #TODO load textures method
-
-    def renderUI(self):
-        pass #TODO use this method to render HP bar
     
     def loginScreen(self):
         #Menu UI
@@ -331,7 +334,7 @@ class Game():
 
                 if event.type == pygame.MOUSEBUTTONDOWN: #handle button events
 
-                    onlineUsers = self.n.getOnlineUsers()
+                    onlineUsers = self.n.getOnlineUsers() #done when mouse clicked only to avoid too many requests
 
                     onlineList.updateUsers(onlineUsers)
                     
@@ -359,6 +362,10 @@ class Game():
                 if enemyU != None: #if a request has been recived
                     log("Loading battle")
                     self.battle(enemyU,startSide)
+                    enemyU = None
+                    startSide = None
+                    requestBox = None
+
 
 
                     
@@ -398,12 +405,20 @@ class Game():
 
         #initiate sprites
         all_sprites = pygame.sprite.Group()
-        p = Player(50,50,0,255,0,self,"p")
-        e = Player(50,50,255,0,0,self,"e") #TODO: need to pick which side each player spawns on using startside
+        if startSide == "L":
+            p = Player(50,50,0,255,0,self,"p","L")
+            e = Player(50,50,255,0,0,self,"e","R")
+            healthbarP = HealthBar(50,50,50)
+            healthbarE = HealthBar(50,1020,50)
+        else:
+            p = Player(50,50,0,255,0,self,"p","R")
+            e = Player(50,50,255,0,0,self,"e","L")
+            healthbarE = HealthBar(50,50,50)
+            healthbarP = HealthBar(50,1020,50)
+
         all_sprites.add(p)
         all_sprites.add(e)
-        healthbar = HealthBar(50,50,50)
-        healthbar2 = HealthBar(50,1020,50)
+
         
         run = True
         log("Battle loaded")
@@ -432,31 +447,35 @@ class Game():
 
                 #Send player data
                 playerData = p.getPos()
+
                 if clickPos != None:
                     playerData["clickPos"] = clickPos
-                self.n.send(playerData)
+
+                self.n.updateData(playerData)
 
                 #Update enemy data
                 enemyData = self.n.getEnemyData()
                 if enemyData != None:   
                     e.dataUpdate(enemyData)
+                    if "clickPos" in enemyData:
+                        p.checkClick(enemyData["clickPos"],(enemyData["x"],enemyData["y"]))
+
 
             except Exception as exc:
-                #TODO check when this happens
                 log(exc)
 
-            healthbar.updateHealth(p.getHP())
-            healthbar2.updateHealth(p.getHP())
+            healthbarP.updateHealth(p.getHP())
+            healthbarE.updateHealth(e.getHP())
 
-            healthbar.draw(self.win)
-            healthbar2.draw(self.win)
+            healthbarP.draw(self.win)
+            healthbarE.draw(self.win)
             self.renderBattle(self.win,all_sprites) #Render battle
+
+
         
     def exit(self):
         pygame.quit()
         sys.exit()
-        #TODO disable network
-        #TODO save anything?
         return True
 
 

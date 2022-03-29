@@ -1,6 +1,5 @@
 
 from json.decoder import JSONDecoder
-from re import U
 import socket
 import threading
 import json
@@ -62,7 +61,7 @@ class Database():
         self.cursor.execute("INSERT INTO acsessTextures VALUES (?,?)",[name,data])
         self.con.commit()
 
-    def getAcsess(self,username): #TODO
+    def getAcsess(self,username):
         self.cursor.execute("SELECT acsessTextures.serializedData FROM acsessTextures INNER JOIN users WHERE users.acsess = acsessTextures.acsess AND users.user_name = (?)",[username])
 
         serializedData = self.cursor.fetchone()
@@ -105,14 +104,14 @@ class Client:
         self.battleAccepted = False
         self.pendingClient = None
         self.requestedEnemy = None
-
-        self.inBattle = False
+ 
 
         self.x = 0
         self.y = 0 
         self.click = None
         self.state = "standing"
-        self.orientation = "R" #TODO change depending on side
+        self.orientation = "R"
+        self.hp = 100
 
         mainThread = threading.Thread(target=self.main)
         mainThread.start()
@@ -181,17 +180,15 @@ class Client:
             accept = self.pendingClient.checkIfAccepted()
             if accept:
                     self.clientLog("Both players have accepted the battle")
-                    self.send({"requestType":"battleConfirm","battleAccepted":True,"enemyU":self.pendingClient.getUsername()})
-                    self.pendingClient.send({"requestType":"battleConfirm","battleAccepted":True,"enemyU":self.username})
+                    self.send({"requestType":"battleConfirm","battleAccepted":True,"enemyU":self.pendingClient.getUsername(),"startSide":"L"})
+                    self.pendingClient.send({"requestType":"battleConfirm","battleAccepted":True,"enemyU":self.username,"startSide":"R"})
                     self.battleAccepted = True
                     self.clientLog("creating battle")
                     startBattle(self.pendingClient,self) #starts battle
         
         data = self.recive() 
-        if data["requestType"] == "clientDisconnect":
-            return False
-        
-        if data["requestType"] == "error":
+
+        if type(data) != dict or data["requestType"] == "error":
             self.ecounter +=1
         else:
             self.ecounter = 0 
@@ -199,7 +196,10 @@ class Client:
         if self.ecounter > 30:
             self.clientLog("maximum recive errors, shutting down connection")
             return False
-
+    
+        if data["requestType"] == "clientDisconnect":
+            return False
+        
 
         if self.battleAccepted == True: 
             if data["requestType"] == "posData":
@@ -207,13 +207,18 @@ class Client:
                 self.y = data["y"]
                 self.state = data["state"]
                 self.orientation = data["orientation"]
+                self.hp = data["hp"]
                 if "clickPos" in data:
                     self.click = data["clickPos"]
-        elif self.battleSent == True and self.battleAccepted == False:
+        else:
+            if data["requestType"] == "posData": #If user is still sending pos data when no battle exists, attempts to end the game
+                self.send({"requestType":"gameOver"})
+
+        if self.battleSent == True and self.battleAccepted == False:
             if data["requestType"]=="battleReq" and data["battleAccepted"]==True: 
                 self.clientLog(self.username+" has accepted the battle")
                 self.battleAccepted = True
-        elif data["requestType"] == "startBattle":
+        if data["requestType"] == "startBattle":
             self.clientLog("Battle reqest recieved")
             opponentU = data["enemyU"]
             for client in clients: #Searches list of connected clients
@@ -221,7 +226,7 @@ class Client:
                     self.clientLog("attempting to start battle")
                     client.sendBattleRequest(self.username)
                     self.pendingClient = client
-        elif data["requestType"] == "getOnlineUsers":
+        if data["requestType"] == "getOnlineUsers":
             clientList = []
             for client in clients:
                 if client.isconnected() == True and client.isLoggedIn() == True:
@@ -293,23 +298,33 @@ class Client:
                 self.send(loginReq)
                 return False
 
-
-
-
-    def sendPos(self,data):
-        self.send(data)      
+ 
  
     def getPos(self):
         if self.click != None:
-            data = {"requestType":"posData","x":self.x,"y":self.y,"clickPos":self.click,"state":self.state,"orientation":self.orientation}
+            data = {"requestType":"posData","x":self.x,"y":self.y,"clickPos":self.click,"state":self.state,"orientation":self.orientation,"hp":self.hp}
             self.click = None
             return data
         else:
-            return {"requestType":"posData","x":self.x,"y":self.y,"state":self.state,"orientation":self.orientation}
+            return {"requestType":"posData","x":self.x,"y":self.y,"state":self.state,"orientation":self.orientation,"hp":self.hp}
 
     def getUsername(self):
         return self.username
 
+    def endBattle(self):
+        self.send({"requestType":"gameOver"})
+        self.battleAccepted = False
+        self.battleSent =  False
+        self.pendingBattle = False
+        self.pendingClient = None
+        self.requestedEnemy = None
+
+        self.x = 0
+        self.y = 0 
+        self.click = None
+        self.state = "standing"
+        self.orientation = "R" 
+        self.hp = 100
 
 
 def startBattle(client1,client2):
@@ -317,10 +332,10 @@ def startBattle(client1,client2):
     battles.append(battle)
 
 
+
 class Battle:
     def __init__(self,client1,client2):
         print("initializing battle.")
-        #TODO server decides whos on which side
         self.client1 = client1
         self.client2 = client2
 
@@ -336,48 +351,53 @@ class Battle:
 
 
     def sendPos(self):
-        while self.client1.isconnected() == True and self.client2.isconnected() == True:
+        self.battle =  True
+        while self.client1.isconnected() == True and self.client2.isconnected() == True and self.battle == True:
             data1 = self.client1.getPos()
-            data2 = self.client2.getPos()
-            
-            if "clickPos" in data1:
-                data2["reduceHp"] = self.checkClick(data1,data2)
-            elif "clickPos" in data2:
-                data1["reduceHp"] = self.checkClick(data2,data1)
-                
+            self.client2.send(data1)
 
-            self.client2.sendPos(data1)
-            self.client1.sendPos(data2)
-        
+            data2 = self.client2.getPos()
+            self.client1.send(data2)
+
+
+            # if "clickPos" in data1: OLD
+            #     data2["reduceHp"] = self.checkClick(data1,data2)
+            # elif "clickPos" in data2:
+            #     data1["reduceHp"] = self.checkClick(data2,data1)
+            if data1["hp"] <= 0 or data2["hp"] <= 0:
+                self.battle = False
+            
         self.endBattle()
 
     
-    def checkClick(self,data1,data2):
-        pos = data1["clickPos"]
-        print(pos)
-        x1 = pos[0]
-        y1 = pos[1]
-        x = data2["x"]
-        y = data2["y"]
-        state = data2["state"]
-        if state != "crouching":
-            if  x-(self.width/2) <= x1 <= x + (self.width/2) and y-(self.height/2) <= y1 <= y + (self.height/2):
-                return 10
-            else:
-                return 0
-        if state == "crouching":
-            if  x-(self.width/2) <= x1 <= x + (self.width/2) and y-((self.height/2)/2) <= y1 <= y + ((self.height/2)/2):
-                return 10
-            else:
-                return 0
+    # def checkClick(self,data1,data2): OLD 
+    #     pos = data1["clickPos"]
+    #     print(pos)
+    #     x1 = pos[0]
+    #     y1 = pos[1]
+    #     x = data2["x"]
+    #     y = data2["y"]
+    #     state = data2["state"]
+    #     if state != "crouching":
+    #         if  x-(self.width/2) <= x1 <= x + (self.width/2) and y-(self.height/2) <= y1 <= y + (self.height/2):
+    #             return 10
+    #         else:
+    #             return 0
+    #     if state == "crouching":
+    #         if  x-(self.width/2) <= x1 <= x + (self.width/2) and y-((self.height/2)/2) <= y1 <= y + ((self.height/2)/2):
+    #             return 10
+    #         else:
+    #             return 0
 
     def endBattle(self):
-        pass
+        self.client1.endBattle()
+        self.client2.endBattle()
+        print("battle over")
         #send enemy disconnect to all connected clients
     
 
 
-#TODO OLD
+#OLD
 # def battleWait():
 #     flag = False
 #     while flag == False:

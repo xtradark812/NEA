@@ -23,16 +23,19 @@ class Network():
         self.acsess = None
         self.enemyUsername = None
         self.enemyData = None
+        self.data = None
         self.onlineUsers = []
         self.requestedEnemy = None
         self.username = None #If username is none, user is not logged in
-        self.reduceHp = None
+        self.enemyClick = None
+        self.click = None
 
         self.menu = False
         self.battle = False
 
         self.pendingBattle = False
         self.pendingEnemy = None
+        self.startSide = None
 
 
     def send(self,data):
@@ -152,14 +155,16 @@ class Network():
     def menuLoop(self):
         while self.menu:
             response = self.recive()
-            if response != None:
+            if response != None and type(response) == dict:
                 if response["requestType"]=="battleReq":
                     log("Battle request recived...")
                     self.pendingEnemy = response["enemyU"]
                     self.pendingBattle = True
                 elif response["requestType"] == "battleConfirm" and response["battleAccepted"] == True:
                     log("Starting battle")
+                    self.startSide = response["startSide"]
                     self.enemyUsername = response["enemyU"]
+                    
                     self.menu = False
                 elif response["requestType"] == "getOnlineUsers":
                     self.onlineUsers = response["onlineUsers"]
@@ -173,7 +178,7 @@ class Network():
 
     def getEnemyStartside(self):
         if self.enemyUsername != None:
-            return self.enemyUsername, 0 #TODO pick a side
+            return self.enemyUsername, self.startSide 
         else:
             return None, None
 
@@ -228,30 +233,53 @@ class Network():
             data = self.battleRecive()
             if data != None and type(data) == dict:
                 if data["requestType"] == "posData":
-                    if "reduceHp" in data:  #game loop might fetch pos data and miss this data, so it is stored in network as variables 
-                        if self.reduceHp != None:
-                            self.reduceHp += data["reduceHp"]
-                        else:
-                            self.reduceHp = data["reduceHp"]
-
+                    if "clickPos" in data:  #game loop might fetch pos data and miss this data, so it is stored in network as variables 
+                        self.enemyClick = data["clickPos"]
                     self.enemyData = data
 
                 if data["requestType"] == "opponentDisconnect":
-                    self.enemyUsername = None
-            
+                    self.endBattle()
+                if data["requestType"] == "gameOver":
+                    print("gameOver")
+                    self.endBattle()
             else:
                 log("error: no data")
+            
+            data = self.data
+            if data != None:
+                if self.click != None:
+                    data["clickPos"] = self.click
+                    self.click = None
+                self.send(data)
 
+ 
+    def endBattle(self):
+        self.battle = False
+        self.requestedEnemy = None
+        self.enemyClick = None
+        self.enemyUsername = None
+        self.startside = None
+        self.pendingBattle = False
+        self.pendingEnemy = None
+        self.startLoop("menu")
 
     def getAcsess(self):
         return json.loads(self.acsess)
 
     def getEnemyData(self):
-        if self.reduceHp != None:
-            self.enemyData["reduceHp"] = self.reduceHp
-            self.reduceHp = None
-        return self.enemyData
-            
+        data = self.enemyData
+        if self.enemyClick != None:
+            data["clickPos"] = self.enemyClick
+            self.enemyClick = None
+        return data
+
+    def updateData(self,data):
+        self.data = data
+        if "clickPos" in data:
+            self.click = data["clickPos"]
+
+
+
 
     
     def isConnected(self):
