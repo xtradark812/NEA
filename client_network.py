@@ -26,7 +26,6 @@ class Network():
         self.data = None
         self.onlineUsers = []
         self.requestedEnemy = None
-        self.username = None #If username is none, user is not logged in
         self.enemyClick = None
         self.click = None
 
@@ -106,9 +105,6 @@ class Network():
         except Exception as e:
             log("error",e)
             return {"requestType":None}
-        
-        
-        
 
     def connect(self,username,password): #Connects to the server and attempts to login. Returns true if logged in.
         log("Attempting to connect to server")
@@ -194,10 +190,7 @@ class Network():
         if sent == False:
             log("Requested user not online")
             self.requestedEnemy = None
-
-
-                    
-            
+                               
     def login(self,username,password): #function pulled from previous messaging project
 
         loginReq = {"requestType":"loginRequest","username":username,"password":password}
@@ -218,15 +211,12 @@ class Network():
             return True
         else:
             return False
-
     
     def acceptBattle(self):
         log("Accepting battle")
         self.requestedEnemy = self.pendingEnemy
         accept = {"requestType":"battleReq","battleAccepted":True,"enemyU":self.pendingEnemy} 
         self.send(accept)
-
-
 
     def battleLoop(self):
         while self.battle:
@@ -252,7 +242,6 @@ class Network():
                     self.click = None
                 self.send(data)
 
- 
     def endBattle(self):
         self.battle = False
         self.requestedEnemy = None
@@ -277,11 +266,7 @@ class Network():
         self.data = data
         if "clickPos" in data:
             self.click = data["clickPos"]
-
-
-
-
-    
+   
     def isConnected(self):
         return self.connected
     

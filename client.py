@@ -36,30 +36,23 @@ class Controls():
 
 class Player(pygame.sprite.Sprite):
     def __init__(self,x,y,r,g,b,game,cType,startside):
+        pygame.sprite.Sprite.__init__(self) #sprite init function (required by pygame)
+
         self.playerWidth = 120
         self.playerHeight = 240
         self.game = game
-
         self.state = "standing"
+        self.y = self.game.height - 140 -self.playerHeight/2 
+        self.color = r,g,b
+        self.vel = 10
+        self.hp = 100
+
         if startside == "L":
             self.orientation = "R" 
-        else:
-            self.orientation = "L"
-
-        pygame.sprite.Sprite.__init__(self) #sprite init function (required by pygame)
-
-        if startside == "L":
             self.x = self.game.width/4
         else:
-            self.x = self.game.width*3/4
-
-        self.y = self.game.height - 140 -self.playerHeight/2 
-
-        self.color = r,g,b
-
-        self.vel = 10
-
-        self.hp = 100
+            self.orientation = "L"
+            self.x = self.game.width*3/4         
 
         
         #CREATING CHARACHTER
@@ -69,13 +62,10 @@ class Player(pygame.sprite.Sprite):
             self.image = self.game.textures["enemyStanding"]
         if self.orientation == "L":
             self.image = pygame.transform.flip(self.image, True, False)
-
-
-        # self.image = pygame.Surface((self.playerWidth, self.playerHeight)) #temporarly a square
-        # self.image.fill(self.color)  #temporarily a square
         self.rect = self.image.get_rect() #will  define players hitbox as size of the image
         self.rect.center = (self.x, self.y)
 
+    
         #FOR JUMPING
         self.jumpcount = 10
         self.doubleJumpCount = 10
@@ -91,15 +81,10 @@ class Player(pygame.sprite.Sprite):
         self.counter = 0
         self.walkcounter = 0
 
-    #def draw(self,win):
-    #    pygame.draw.rect(win,self.color,self.rect)
-
     def reudceHp(self, ammount):
         self.hp -= ammount
         print("i took",ammount,"damage") #for debugging
     
-    def resetHp(self):
-        self.hp = 100
 
 
     def move(self):
@@ -357,7 +342,7 @@ class Game():
 
             if self.n.isConnected():
                 if self.n.checkPendingBattle() == True:
-                    requestBox = Button("Battle request from: "+ self.n.checkPendingEnemy(),900,600,(255,0,0),300,100)
+                    requestBox = Button("Battle request from: "+ self.n.checkPendingEnemy(),900,600,(255,0,0),350,100)
                 enemyU, startSide = self.n.getEnemyStartside()
                 if enemyU != None: #if a request has been recived
                     log("Loading battle")
