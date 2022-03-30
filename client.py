@@ -11,7 +11,7 @@ import sys
 import threading
 
 
-from ui import Button, HealthBar, InputBox, Textures, OnlineList
+from ui import Button, HealthBar, InputBox, OnlineList
 
 from client_network import Network
 
@@ -32,7 +32,40 @@ class Controls():
     def loadSettings():
         pass #TODO load settings saved?    
 
-     
+class Textures:
+    def __init__(self,width,height): #TODO recive acsess in this method and load proper textures
+        self.width = width
+        self.height = height
+        self.loginBackground = pygame.image.load(os.path.join("textures", "background.png"))
+        self.loginBackground = pygame.transform.scale(self.loginBackground,(width, height))
+
+    def getLoginBackground(self):
+        return self.loginBackground
+
+    def loadTextures(self,acsess):
+        textures = ["standing","enemyStanding","background","crouching","enemyCrouching","jumping","enemyJumping"]
+        animations = ["walking","enemyWalking"]
+        loadedTextures = {}
+        loadedAnimations = {}
+
+        for texture in textures:
+            try:
+                loadedTextures[texture] = pygame.image.load(os.path.join("textures", acsess[texture]+".png"))
+            except:
+                print("texture not found: ",texture)
+        
+        for animation in animations:
+            loadedAnimations[animation] = []
+            for i in range(4):#animations will always have 4 images
+                loadedAnimations[animation].append(pygame.image.load(os.path.join("textures",acsess[animation], str(i)+".gif")))
+
+        
+        #RESIZE 
+        try:
+            loadedTextures["background"] = pygame.transform.scale(loadedTextures["background"],(self.width, self.height))
+        except:
+            print("texture not found")
+        return loadedTextures, loadedAnimations     
 
 class Player(pygame.sprite.Sprite):
     def __init__(self,x,y,r,g,b,game,cType,startside):
