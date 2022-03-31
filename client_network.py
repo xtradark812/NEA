@@ -20,7 +20,7 @@ class Network():
         self.BUFSIZ = 1024
         self.connected = False
         self.username = None
-        self.acsess = None
+        self.access = None
         self.enemyUsername = None
         self.enemyData = None
         self.data = None
@@ -41,7 +41,7 @@ class Network():
         serialized_data = json.dumps(data) #serialize data
         self.client.sendall(bytes(serialized_data, "utf8")) ### SENDS DATA TO SERVER 
 
-    def recive(self):
+    def receive(self):
         decoder = JSONDecoder()
         try:
             data = self.client.recv(self.BUFSIZ).decode("utf8")
@@ -63,7 +63,7 @@ class Network():
             log("error",e)
             return {"requestType":None}
 
-    def battleRecive(self):
+    def battleReceive(self):
         decoder = JSONDecoder()
         try:
             data = self.client.recv(self.BUFSIZ).decode("utf8")
@@ -88,7 +88,7 @@ class Network():
                         string = True
                     i+=1
                 if string == False:
-                    tryAgain = self.recive()
+                    tryAgain = self.receive()
                     return tryAgain
                 
                 response, index = decoder.raw_decode(finalData) ### WAITS FOR DATA TO BE RETURNED
@@ -116,7 +116,7 @@ class Network():
             return False
 
         log("Attempting login")
-        self.username,self.acsess = self.login(username,password)
+        self.username,self.access = self.login(username,password)
 
         if self.username == None:
             log("Login failed")
@@ -149,7 +149,7 @@ class Network():
 
     def menuLoop(self):
         while self.menu:
-            response = self.recive()
+            response = self.receive()
             if response != None and type(response) == dict:
                 if response["requestType"]=="battleReq":
                     log("Battle request recived...")
@@ -196,13 +196,13 @@ class Network():
         loginReq = {"requestType":"loginRequest","username":username,"password":password}
 
         self.send(loginReq)
-        response = self.recive()
+        response = self.receive()
         print(response)
         if response == None or type(response) != dict:
             return None, None
         if response["requestType"]=="loginRequest" and response["loginR"]==True: 
             log("Server accepted login response")
-            return username, response["acsess"]
+            return username, response["access"]
         else:
             return None, None
 
@@ -220,7 +220,7 @@ class Network():
 
     def battleLoop(self):
         while self.battle:
-            data = self.battleRecive()
+            data = self.battleReceive()
             if data != None and type(data) == dict:
                 if data["requestType"] == "posData":
                     if "clickPos" in data:  #game loop might fetch pos data and miss this data, so it is stored in network as variables 
@@ -252,8 +252,8 @@ class Network():
         self.pendingEnemy = None
         self.startLoop("menu")
 
-    def getAcsess(self):
-        return json.loads(self.acsess)
+    def getAccess(self):
+        return json.loads(self.access)
 
     def getEnemyData(self):
         data = self.enemyData

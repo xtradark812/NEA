@@ -46,23 +46,23 @@ class Database():
     
     def initDatabase(self):
         self.cursor.execute('''CREATE TABLE IF NOT EXISTS users
-               (user_name text NOT NULL, password text, acsess text)''')
+               (user_name text NOT NULL, password text, access text)''')
 
-        self.cursor.execute('''CREATE TABLE IF NOT EXISTS acsessTextures
-               (acsess text NOT NULL, serializedData text)''')
+        self.cursor.execute('''CREATE TABLE IF NOT EXISTS accessTextures
+               (access text NOT NULL, serializedData text)''')
 
-        #self.createAcsess("test",json.dumps({"standing":"","enemyStanding":"","background":"background01","crouching":"","enemyCrouching":"","walking":"","enemyWalking":"","jumping":"","enemyJumping":""}))
+        #self.createAccess("test",json.dumps({"standing":"","enemyStanding":"","background":"background01","crouching":"","enemyCrouching":"","walking":"","enemyWalking":"","jumping":"","enemyJumping":""}))
 
-    def createUser(self,username,password,acsess):
-        self.cursor.execute("INSERT INTO users VALUES (?,?,?)",[username,password,acsess])
+    def createUser(self,username,password,access):
+        self.cursor.execute("INSERT INTO users VALUES (?,?,?)",[username,password,access])
         self.con.commit()
     
-    def createAcsess(self,name,data):
-        self.cursor.execute("INSERT INTO acsessTextures VALUES (?,?)",[name,data])
+    def createAccess(self,name,data):
+        self.cursor.execute("INSERT INTO accessTextures VALUES (?,?)",[name,data])
         self.con.commit()
 
     def getAcsess(self,username):
-        self.cursor.execute("SELECT acsessTextures.serializedData FROM acsessTextures INNER JOIN users WHERE users.acsess = acsessTextures.acsess AND users.user_name = (?)",[username])
+        self.cursor.execute("SELECT accessTextures.serializedData FROM accessTextures INNER JOIN users WHERE users.access = accessTextures.access AND users.user_name = (?)",[username])
 
         serializedData = self.cursor.fetchone()
 
@@ -95,7 +95,7 @@ class Client:
         self.username = None
         self.loggedIn = False
         
-        #after set ammount of consecutive recive errors, server will close connection
+        #after set ammount of consecutive receive errors, server will close connection
         self.ecounter = 0 
 
         self.pendingBattle = False
@@ -130,7 +130,7 @@ class Client:
         except Exception as e:
             self.clientLog("send error",e)
 
-    def recive(self):
+    def receive(self):
         
         decoder = JSONDecoder()
         try:
@@ -157,7 +157,7 @@ class Client:
                 #         string = True
                 #     i+=1
                 # if string == False:
-                #     tryAgain = self.recive()
+                #     tryAgain = self.receive()
                 #     return tryAgain
                 
                 response, index = decoder.raw_decode(data) ### WAITS FOR DATA TO BE RETURNED
@@ -170,7 +170,7 @@ class Client:
         except socket.timeout:
             return {"requestType":"error","error":"socketTimeout"}
         except Exception as e:
-            self.clientLog("recive error",e)
+            self.clientLog("receive error",e)
             return {"requestType":"error","error":e}
             
     def requestHandler(self):
@@ -186,7 +186,7 @@ class Client:
                     self.clientLog("creating battle")
                     startBattle(self.pendingClient,self) #starts battle
         
-        data = self.recive() 
+        data = self.receive() 
 
         if type(data) != dict or data["requestType"] == "error":
             self.ecounter +=1
@@ -195,7 +195,7 @@ class Client:
             self.ecounter = 0 
         
         if self.ecounter > 30:
-            self.clientLog("maximum recive errors, shutting down connection")
+            self.clientLog("maximum receive errors, shutting down connection")
             return False
     
         if data["requestType"] == "clientDisconnect":
@@ -273,16 +273,16 @@ class Client:
     
     def login(self): #pulled from previous messaging project
         #Then wait for login
-        loginData = self.recive()
+        loginData = self.receive()
         db = Database()
         if loginData["requestType"] == "loginRequest" and loginData["username"]!= "" and loginData["username"] not in [client.username for client in clients]: #Makes sure username is not blank or already connected
             username = loginData["username"]
             password = loginData["password"]
 
             if db.checkCredintials(username,password):
-                acsess = db.getAcsess(username)
+                access = db.getAcsess(username)
 
-                loginReq = {"requestType":"loginRequest","loginR":True,"acsess":acsess}
+                loginReq = {"requestType":"loginRequest","loginR":True,"access":access}
                 self.send(loginReq)
                 self.clientLog("confirmed login: "+username+" at"+"%s:%s" % self.addr)
                 self.username = username
