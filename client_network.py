@@ -41,7 +41,6 @@ class Network():
         serialized_data = json.dumps(data) #serialize data
         self.client.sendall(bytes(serialized_data, "utf8")) ### SENDS DATA TO SERVER 
 
-
     def recive(self):
         decoder = JSONDecoder()
         try:
@@ -166,6 +165,7 @@ class Network():
                     self.onlineUsers = response["onlineUsers"]
 
         return None
+    
     def checkPendingBattle(self):
         return self.pendingBattle
 

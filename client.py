@@ -1,18 +1,10 @@
 
 
-
-from queue import Empty
-from tracemalloc import start
-from typing import Counter
-
+import os
 import pygame
 import sys
 
-import threading
-
-
 from ui import Button, HealthBar, InputBox, OnlineList
-
 from client_network import Network
 
 def log(event):
@@ -33,7 +25,7 @@ class Controls():
         pass #TODO load settings saved?    
 
 class Textures:
-    def __init__(self,width,height): #TODO recive acsess in this method and load proper textures
+    def __init__(self,width,height):
         self.width = width
         self.height = height
         self.loginBackground = pygame.image.load(os.path.join("textures", "background.png"))
@@ -48,7 +40,7 @@ class Textures:
         loadedTextures = {}
         loadedAnimations = {}
 
-        for texture in textures:
+        for texture in textures: #This loop will load each texture depending on the acsess given to each texture
             try:
                 loadedTextures[texture] = pygame.image.load(os.path.join("textures", acsess[texture]+".png"))
             except:
@@ -235,8 +227,6 @@ class Player(pygame.sprite.Sprite):
             return False
         else:
             return True
-
-
 
 class Game():
     def __init__(self):

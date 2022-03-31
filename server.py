@@ -67,8 +67,6 @@ class Database():
         serializedData = self.cursor.fetchone()
 
         return serializedData[0]
-    
-        
 
     def checkCredintials(self,username,password):
         self.cursor.execute("SELECT user_name, password FROM users")
@@ -96,7 +94,9 @@ class Client:
         self.BUFSIZ = 1024
         self.username = None
         self.loggedIn = False
-        self.ecounter = 0
+        
+        #after set ammount of consecutive recive errors, server will close connection
+        self.ecounter = 0 
 
         self.pendingBattle = False
         self.enemyUsername = None
@@ -190,6 +190,7 @@ class Client:
 
         if type(data) != dict or data["requestType"] == "error":
             self.ecounter +=1
+            return True
         else:
             self.ecounter = 0 
         
@@ -255,7 +256,6 @@ class Client:
         
         self.disconnect()
 
-
     def disconnect(self):
             clients.remove(self)
             self.connected = False
@@ -270,9 +270,7 @@ class Client:
     
     def isLoggedIn(self):
         return self.loggedIn
-
     
-
     def login(self): #pulled from previous messaging project
         #Then wait for login
         loginData = self.recive()
@@ -297,8 +295,6 @@ class Client:
                 loginReq = {"requestType":"loginRequest","loginR":False,"reason":"Invalid username/password"}
                 self.send(loginReq)
                 return False
-
- 
  
     def getPos(self):
         if self.click != None:
@@ -339,15 +335,8 @@ class Battle:
         self.client1 = client1
         self.client2 = client2
 
-        self.width = 120
-        self.height = 240
         battleThread = threading.Thread(target=self.sendPos)
         battleThread.start()
-
-        
-
-
-
 
 
     def sendPos(self):
@@ -360,15 +349,27 @@ class Battle:
             self.client1.send(data2)
 
 
-            # if "clickPos" in data1: OLD
-            #     data2["reduceHp"] = self.checkClick(data1,data2)
-            # elif "clickPos" in data2:
-            #     data1["reduceHp"] = self.checkClick(data2,data1)
             if data1["hp"] <= 0 or data2["hp"] <= 0:
                 self.battle = False
             
         self.endBattle()
 
+    def endBattle(self):
+        self.client1.endBattle()
+        self.client2.endBattle()
+        print("battle over")
+
+
+
+
+        #send enemy disconnect to all connected clients
+    
+
+
+            # if "clickPos" in data1: OLD
+            #     data2["reduceHp"] = self.checkClick(data1,data2)
+            # elif "clickPos" in data2:
+            #     data1["reduceHp"] = self.checkClick(data2,data1)
     
     # def checkClick(self,data1,data2): OLD 
     #     pos = data1["clickPos"]
@@ -389,12 +390,6 @@ class Battle:
     #         else:
     #             return 0
 
-    def endBattle(self):
-        self.client1.endBattle()
-        self.client2.endBattle()
-        print("battle over")
-        #send enemy disconnect to all connected clients
-    
 
 
 #OLD
