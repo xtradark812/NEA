@@ -1,4 +1,3 @@
-
 from json.decoder import JSONDecoder
 import socket
 import threading
@@ -39,12 +38,15 @@ except socket.error as e:
 
 class Database():
     def __init__(self):
+        #init sqlite
         self.con = sqlite3.connect('database.db')
         self.cursor = self.con.cursor()
 
+        #init Database
         self.initDatabase()
     
     def initDatabase(self):
+
         self.cursor.execute('''CREATE TABLE IF NOT EXISTS users
                (user_name text NOT NULL, password text, access text)''')
 
@@ -72,7 +74,6 @@ class Database():
         self.cursor.execute("SELECT user_name, password FROM users")
         data = self.cursor.fetchall()
         for user in data:
-
             if user[0] == username and user[1] == password:
                 return True
         return False
@@ -138,27 +139,6 @@ class Client:
             if not data:
                 return {"requestType":"clientDisconnect"}
             else:
-
-                # #this part of the function will fix broken pakets.
-                # #when the client tries to send hundreds of json objects a seccond, sometimes the objects get stuck together
-                # #to solve this problem, this algorithim find exactly the data that is needed from each sent item, and strips off everything else
-                # #if it does not work (e.g. the server recives incomplete data like "123}"), it will call itself and try again
-                # i = 0
-                # string = False
-                # isdict = False
-                # newData = ""
-                # finalData = ""
-                # for char in data:
-                #     if char == "{" and string == False:
-                #         newData = data[i:]
-                #         isdict = True
-                #     if char == "}" and isdict == True and string == False:
-                #         finalData = newData[:i+1]
-                #         string = True
-                #     i+=1
-                # if string == False:
-                #     tryAgain = self.receive()
-                #     return tryAgain
                 
                 response, index = decoder.raw_decode(data) ### WAITS FOR DATA TO BE RETURNED
                 if response != None:
@@ -360,16 +340,12 @@ class Battle:
         print("battle over")
 
 
+### Old method of checking if a player was hit, server sided. This is now done client sided.
 
-
-        #send enemy disconnect to all connected clients
-    
-
-
-            # if "clickPos" in data1: OLD
-            #     data2["reduceHp"] = self.checkClick(data1,data2)
-            # elif "clickPos" in data2:
-            #     data1["reduceHp"] = self.checkClick(data2,data1)
+    # if "clickPos" in data1: OLD
+    #     data2["reduceHp"] = self.checkClick(data1,data2)
+    # elif "clickPos" in data2:
+    #     data1["reduceHp"] = self.checkClick(data2,data1)
     
     # def checkClick(self,data1,data2): OLD 
     #     pos = data1["clickPos"]
@@ -390,20 +366,6 @@ class Battle:
     #         else:
     #             return 0
 
-
-
-#OLD
-# def battleWait():
-#     flag = False
-#     while flag == False:
-#         if len(clients) == 2 and clients[0].isLoggedIn() == True and clients[1].isLoggedIn() == True:
-#             battle = Battle(clients[0],clients[1])
-#             battle.initBattle()
-#             flag = True
-
-
-# battlestart = threading.Thread(target=battleWait)
-# battlestart.start()
 
 
 while True:
