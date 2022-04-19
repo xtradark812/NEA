@@ -289,13 +289,13 @@ class Game():
         self.controls = Controls()
         #init network object
         self.n = Network()
-        #init textures  object
-        self.textureObject = Textures(self.width,self.height)
 
         #game attributes
         self.width = 1280
         self.height = 720
 
+        #init textures  object
+        self.textureObject = Textures(self.width,self.height)
         #pygame window
         self.win = pygame.display.set_mode((self.width,self.height))
         pygame.display.set_caption("Client")
