@@ -1,0 +1,229 @@
+IMPORT pygame
+
+
+
+DEFINE CLASS Button:
+
+    DEFINE FUNCTION __init__(self, text, midx, midy, color,width,height):
+
+        SET self.text TO text
+
+
+
+        SET self.color TO color
+
+        SET self.width TO width
+
+        SET self.height TO height
+
+
+
+        SET self.x TO midx-(self.width/2)
+
+        SET self.y TO midy-(self.height/2)
+
+
+
+    DEFINE FUNCTION draw(self, win):
+
+        pygame.draw.rect(win, self.color, (self.x, self.y, self.width, self.height))
+
+        SET font TO pygame.font.SysFont("comicsans", 40)
+
+        SET text TO font.render(self.text, 1, (255,255,255))
+
+        win.blit(text, (self.x + round(self.width/2) - round(text.get_width()/2), self.y + round(self.height/2) - round(text.get_height()/2)))
+
+
+
+    DEFINE FUNCTION click(self, pos):
+
+        SET x1 TO pos[0]
+
+        SET y1 TO pos[1]
+
+        IF self.x <= x1 <= self.x + self.width and self.y <= y1 <= self.y + self.height:
+
+            RETURN True
+
+        ELSE:
+
+            RETURN False   
+
+
+
+    DEFINE FUNCTION changeText(self,text):
+
+        SET self.text TO text
+
+
+
+DEFINE CLASS OnlineList():
+
+    DEFINE FUNCTION __init__(self,x,y):
+
+        SET self.x TO x
+
+        SET self.y TO y
+
+        SET self.buttons TO []
+
+
+
+    DEFINE FUNCTION updateUsers(self,users):
+
+        SET self.buttons TO []
+
+        SET listSpace TO 15
+
+        FOR user IN users:
+
+            self.buttons.append(Button(user,self.x,self.y+listSpace,(0,0,0),100,30))
+
+            listSpace+= 45
+
+
+
+    DEFINE FUNCTION click(self,pos):
+
+        FOR button IN self.buttons:
+
+            IF button.click(pos):
+
+                RETURN button.text
+
+        RETURN None
+
+            
+
+
+
+    DEFINE FUNCTION draw(self,win):
+
+        FOR button IN self.buttons:
+
+            button.draw(win)
+
+
+
+
+
+
+
+DEFINE CLASS InputBox:
+
+
+
+    DEFINE FUNCTION __init__(self, x, y, w, h, text=''):
+
+        SET self.COLOR_INACTIVE TO pygame.Color('lightskyblue3')
+
+        SET self.COLOR_ACTIVE TO pygame.Color('dodgerblue2')
+
+        SET self.rect TO pygame.Rect(x-(w/2), y, w, h)
+
+        SET self.color TO self.COLOR_INACTIVE
+
+        SET self.text TO text
+
+        SET self.font TO font TO pygame.font.Font('freesansbold.ttf',30)
+
+        SET self.txt_surface TO self.font.render(text, True, self.color)
+
+        SET self.active TO False
+
+
+
+    DEFINE FUNCTION handle_event(self, event):
+
+        IF event.type EQUALS pygame.MOUSEBUTTONDOWN:
+
+            # If the user clicked on the INPUT_box rect.
+
+            IF self.rect.collidepoint(event.pos):
+
+                # Toggle the active variable.
+
+                SET self.active TO not self.active
+
+            ELSE:
+
+                SET self.active TO False
+
+            # Change the current color of the INPUT box.
+
+            SET self.color TO self.COLOR_ACTIVE IF self.active else self.COLOR_INACTIVE
+
+        IF event.type EQUALS pygame.KEYDOWN:
+
+            IF self.active:
+
+                IF event.key EQUALS pygame.K_RETURN:
+
+                    OUTPUT(self.text)
+
+                    SET self.text TO ''
+
+                ELSEIF event.key EQUALS pygame.K_BACKSPACE:
+
+                    SET self.text TO self.text[:-1]
+
+                ELSE:
+
+                    self.text += event.unicode
+
+                # Re-render the text.
+
+                SET self.txt_surface TO self.font.render(self.text, True, self.color)
+
+
+
+    DEFINE FUNCTION update(self):
+
+        # Resize the box IF the text is too long.
+
+        SET width TO max(200, self.txt_surface.get_width()+10)
+
+        SET self.rect.w TO width
+
+
+
+    DEFINE FUNCTION draw(self, screen):
+
+        # Blit the text.
+
+        screen.blit(self.txt_surface, (self.rect.x+5, self.rect.y+5))
+
+        # Blit the rect.
+
+        pygame.draw.rect(screen, self.color, self.rect, 2)
+
+
+
+
+
+
+
+DEFINE CLASS HealthBar():
+
+    DEFINE FUNCTION __init__(self,health,x,y):
+
+        SET self.health TO health
+
+        SET self.x TO x
+
+        SET self.y TO y 
+
+    
+
+    DEFINE FUNCTION updateHealth(self,health):
+
+        SET self.health TO health
+
+        
+
+    DEFINE FUNCTION draw(self,win):
+
+        pygame.draw.rect(win, (255,0,0), (self.x, self.y, self.health*2, 20))
+
+        pygame.draw.rect(win, (255,255,255), (self.x, self.y, 200, 20),2)

@@ -29,7 +29,7 @@ class Textures:
     def __init__(self,width,height):
         self.width = width
         self.height = height
-        #Login background will be loaded seperatley, because acsess is not available untill after login
+        #Login background will be loaded seperatley, because access is not available untill after login
         self.loginBackground = pygame.image.load(os.path.join("textures", "background.png"))
         self.loginBackground = pygame.transform.scale(self.loginBackground,(width, height))
 
@@ -37,7 +37,7 @@ class Textures:
         #Returns login background
         return self.loginBackground
 
-    def loadTextures(self,acsess):
+    def loadTextures(self,access):
         #Textures and animations that are required
         textures = ["standing","enemyStanding","background","crouching","enemyCrouching","jumping","enemyJumping"]
         animations = ["walking","enemyWalking"]
@@ -46,20 +46,20 @@ class Textures:
         loadedTextures = {}
         loadedAnimations = {}
 
-        #This loop will load each texture depending on the acsess given 
+        #This loop will load each texture depending on the access given 
         for texture in textures: 
             try:
-                loadedTextures[texture] = pygame.image.load(os.path.join("textures", acsess[texture]+".png"))
+                loadedTextures[texture] = pygame.image.load(os.path.join("textures", access[texture]+".png"))
             except:
                 log("texture not found: "+texture)
             
-        #This loop will load each animation depending on the acsess given
+        #This loop will load each animation depending on the access given
         for animation in animations:
             loadedAnimations[animation] = []
             #animations will always have 4 images
             for i in range(4):
                 try:
-                    loadedAnimations[animation].append(pygame.image.load(os.path.join("textures",acsess[animation], str(i)+".gif")))
+                    loadedAnimations[animation].append(pygame.image.load(os.path.join("textures",access[animation], str(i)+".gif")))
                 except:
                     log("animation not found: "+animation)
         
@@ -343,7 +343,7 @@ class Game():
                                 log("Attempting to connect to server")
                                 if self.n.connect(inputBoxes[1].text,inputBoxes[0].text): #attempts to connect with given username and password)
                                     log("Connected")
-                                    self.acsess = self.n.getAcsess()
+                                    self.access = self.n.getaccess()
                                     self.mainMenu()
 
                                     
@@ -377,7 +377,7 @@ class Game():
 
     def mainMenu(self):
         #Menu UI
-        self.textures,self.animations = self.textureObject.loadTextures(self.acsess)
+        self.textures,self.animations = self.textureObject.loadTextures(self.access)
         
         onlineList = OnlineList(self.width/8,70)
         requestBox = None
