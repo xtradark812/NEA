@@ -50,7 +50,7 @@ class Database():
         self.cursor.execute('''CREATE TABLE IF NOT EXISTS users
                (user_name text NOT NULL, password text, access text)''')
 
-        self.cursor.execute('''CREATE TABLE IF NOT EXISTS accessTextures
+        self.cursor.execute('''CREATE TABLE IF NOT EXISTS acsessTextures
                (access text NOT NULL, serializedData text)''')
 
         #self.createAccess("test",json.dumps({"standing":"","enemyStanding":"","background":"background01","crouching":"","enemyCrouching":"","walking":"","enemyWalking":"","jumping":"","enemyJumping":""}))
@@ -64,7 +64,7 @@ class Database():
         self.con.commit()
 
     def getAcsess(self,username):
-        self.cursor.execute("SELECT accessTextures.serializedData FROM accessTextures INNER JOIN users WHERE users.access = accessTextures.access AND users.user_name = (?)",[username])
+        self.cursor.execute("SELECT acsessTextures.serializedData FROM acsessTextures INNER JOIN users WHERE users.acsess = acsessTextures.acsess AND users.user_name = (?)",[username])
 
         serializedData = self.cursor.fetchone()
 

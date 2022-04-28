@@ -343,7 +343,7 @@ class Game():
                                 log("Attempting to connect to server")
                                 if self.n.connect(inputBoxes[1].text,inputBoxes[0].text): #attempts to connect with given username and password)
                                     log("Connected")
-                                    self.access = self.n.getaccess()
+                                    self.access = self.n.getAccess()
                                     self.mainMenu()
 
                                     
